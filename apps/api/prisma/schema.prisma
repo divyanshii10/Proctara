@@ -1,0 +1,273 @@
+// Prisma Schema for Proctara AI Interview Platform
+// PostgreSQL with pgvector extension for embeddings
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Company & Users
+// ============================================
+
+model Company {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(100)
+  logoUrl   String?  @map("logo_url")
+  plan      String   @default("free") @db.VarChar(20)
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  users      CompanyUser[]
+  jobRoles   JobRole[]
+  questions  Question[]
+  sessions   InterviewSession[]
+  campaigns  Campaign[]
+  candidates Candidate[]
+
+  @@map("companies")
+}
+
+model CompanyUser {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  email        String   @db.VarChar(255)
+  name         String?  @db.VarChar(255)
+  role         String   @default("member") @db.VarChar(20)
+  passwordHash String?  @map("password_hash")
+  googleId     String?  @unique @map("google_id")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, email])
+  @@map("company_users")
+}
+
+// ============================================
+// Candidates
+// ============================================
+
+model Candidate {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  email        String    @db.VarChar(255)
+  name         String?   @db.VarChar(255)
+  phone        String?   @db.VarChar(50)
+  resumeUrl    String?   @map("resume_url")
+  passwordHash String?   @map("password_hash")
+  loginId      String?   @unique @map("login_id") @db.VarChar(100)
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sessions InterviewSession[]
+
+  @@unique([companyId, email])
+  @@map("candidates")
+}
+
+// ============================================
+// Interview Campaigns
+// ============================================
+
+model Campaign {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  jobRoleId   String   @map("job_role_id") @db.Uuid
+  templateId  String   @map("template_id") @db.Uuid
+  status      String   @default("active") @db.VarChar(20)
+  durationMin Int      @default(45) @map("duration_min")
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobRole  JobRole            @relation(fields: [jobRoleId], references: [id])
+  template InterviewTemplate  @relation(fields: [templateId], references: [id])
+  sessions InterviewSession[]
+
+  @@map("campaigns")
+}
+
+// ============================================
+// Job Roles & Interview Templates
+// ============================================
+
+model JobRole {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  skills      String[] @default([])
+  level       String?  @db.VarChar(20)
+  status      String   @default("active") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  company   Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  templates InterviewTemplate[]
+  sessions  InterviewSession[]
+  campaigns Campaign[]
+
+  @@map("job_roles")
+}
+
+model InterviewTemplate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobRoleId   String   @map("job_role_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  durationMin Int      @default(30) @map("duration_min")
+  config      Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  jobRole    JobRole              @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+  sessions   InterviewSession[]
+  questions  TemplateQuestion[]
+  campaigns  Campaign[]
+
+  @@map("interview_templates")
+}
+
+model TemplateQuestion {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  templateId String @map("template_id") @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  orderNum   Int    @map("order_num")
+
+  template InterviewTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  question Question          @relation(fields: [questionId], references: [id])
+
+  @@map("template_questions")
+}
+
+// ============================================
+// Question Bank
+// ============================================
+
+model Question {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId  String?  @map("company_id") @db.Uuid
+  type       String   @db.VarChar(20)
+  difficulty String?  @db.VarChar(10)
+  topic      String?  @db.VarChar(100)
+  content    String   @db.Text
+  rubric     Json?
+  testCases  Json?    @map("test_cases")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  company           Company?           @relation(fields: [companyId], references: [id])
+  templateQuestions  TemplateQuestion[]
+  responses          Response[]
+  codeSubmissions    CodeSubmission[]
+
+  @@index([topic, difficulty])
+  @@map("questions")
+}
+
+// ============================================
+// Interview Sessions
+// ============================================
+
+model InterviewSession {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId  String    @map("candidate_id") @db.Uuid
+  jobRoleId    String    @map("job_role_id") @db.Uuid
+  templateId   String    @map("template_id") @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  campaignId   String?   @map("campaign_id") @db.Uuid
+  status       String    @default("pending") @db.VarChar(20)
+  startedAt    DateTime? @map("started_at") @db.Timestamptz
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz
+  durationSec  Int?      @map("duration_sec")
+  inviteToken  String    @unique @map("invite_token") @db.VarChar(64)
+  trustScore   Decimal?  @map("trust_score") @db.Decimal(3, 2)
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  candidate       Candidate        @relation(fields: [candidateId], references: [id])
+  jobRole          JobRole          @relation(fields: [jobRoleId], references: [id])
+  template         InterviewTemplate @relation(fields: [templateId], references: [id])
+  company          Company          @relation(fields: [companyId], references: [id])
+  campaign         Campaign?        @relation(fields: [campaignId], references: [id])
+  responses        Response[]
+  codeSubmissions  CodeSubmission[]
+  evaluation       Evaluation?
+
+  @@index([companyId])
+  @@index([candidateId])
+  @@index([status])
+  @@map("interview_sessions")
+}
+
+// ============================================
+// Responses & Code Submissions
+// ============================================
+
+model Response {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId     String   @map("session_id") @db.Uuid
+  questionId    String?  @map("question_id") @db.Uuid
+  questionText  String   @map("question_text") @db.Text
+  answerText    String?  @map("answer_text") @db.Text
+  answerAudioUrl String? @map("answer_audio_url")
+  sequenceNum   Int      @map("sequence_num")
+  durationSec   Int?     @map("duration_sec")
+  aiScore       Decimal? @map("ai_score") @db.Decimal(5, 2)
+  aiFeedback    Json?    @map("ai_feedback")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  session  InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question Question?        @relation(fields: [questionId], references: [id])
+
+  @@index([sessionId])
+  @@map("responses")
+}
+
+model CodeSubmission {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId       String   @map("session_id") @db.Uuid
+  questionId      String?  @map("question_id") @db.Uuid
+  language        String   @db.VarChar(20)
+  sourceCode      String   @map("source_code") @db.Text
+  testResults     Json?    @map("test_results")
+  executionTimeMs Int?     @map("execution_time_ms")
+  memoryKb        Int?     @map("memory_kb")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  session  InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question Question?        @relation(fields: [questionId], references: [id])
+
+  @@map("code_submissions")
+}
+
+// ============================================
+// Evaluations (Final Report)
+// ============================================
+
+model Evaluation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId      String   @unique @map("session_id") @db.Uuid
+  overallScore   Decimal  @map("overall_score") @db.Decimal(5, 2)
+  recommendation String?  @db.VarChar(20)
+  scores         Json
+  summary        String?  @db.Text
+  strengths      String[] @default([])
+  weaknesses     String[] @default([])
+  reportUrl      String?  @map("report_url")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([overallScore])
+  @@map("evaluations")
+}

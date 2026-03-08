@@ -1,0 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: #000000;
+    color: #ffffff;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #000;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+}
+
+@layer components {
+  /* ---- Page wrapper with ambient edge lighting ---- */
+  .page-wrapper {
+    position: relative;
+    min-height: 100vh;
+  }
+
+  .page-wrapper::before,
+  .page-wrapper::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 400px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page-wrapper::before {
+    left: 0;
+    background: radial-gradient(ellipse at left 30%, rgba(30, 64, 175, 0.12) 0%, transparent 65%);
+  }
+
+  .page-wrapper::after {
+    right: 0;
+    background: radial-gradient(ellipse at right 30%, rgba(30, 64, 175, 0.12) 0%, transparent 65%);
+  }
+
+  /* ---- Hero ambient lighting — warm top glow like micro1 ---- */
+  .hero-glow {
+    position: absolute;
+    top: -300px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    height: 900px;
+    background:
+      radial-gradient(
+        ellipse 70% 55% at 50% 20%,
+        rgba(200, 150, 80, 0.3) 0%,
+        rgba(170, 120, 60, 0.15) 25%,
+        rgba(130, 90, 45, 0.06) 50%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 50% 50% at 25% 15%,
+        rgba(70, 90, 170, 0.15) 0%,
+        rgba(50, 70, 150, 0.06) 40%,
+        transparent 65%
+      ),
+      radial-gradient(
+        ellipse 50% 50% at 75% 15%,
+        rgba(60, 80, 160, 0.12) 0%,
+        rgba(40, 60, 140, 0.05) 40%,
+        transparent 65%
+      );
+    pointer-events: none;
+    z-index: 0;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
