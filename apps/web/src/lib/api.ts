@@ -58,6 +58,7 @@ async function request<T>(
   }
 
   const res = await fetch(`${API_BASE}${endpoint}`, {
+    cache: 'no-store',
     ...options,
     headers,
   });
@@ -146,7 +147,7 @@ export const candidateApi = {
       { method: 'POST', body: JSON.stringify(data) }
     ),
 
-  bulkAdd: (candidates: Array<{ email: string; name: string; phone?: string }>) =>
+  bulkAdd: (candidates: Array<{ email: string; name: string; phone?: string; resume?: string }>) =>
     request<{ total: number; created: number; skipped: number; candidates: Array<Record<string, unknown>> }>(
       '/api/candidates/bulk',
       { method: 'POST', body: JSON.stringify({ candidates }) }
@@ -168,11 +169,14 @@ export const candidateApi = {
 // ---- Campaigns ----
 
 export const campaignApi = {
-  create: (data: { title: string; description?: string; jobRoleId: string; templateId: string; durationMin?: number }) =>
+  create: (data: any) =>
     request<Record<string, unknown>>('/api/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
   list: () =>
     request<Array<Record<string, unknown>>>('/api/campaigns'),
+
+  questionsPool: () =>
+    request<Array<Record<string, unknown>>>('/api/campaigns/questions/pool'),
 
   get: (id: string) =>
     request<Record<string, unknown>>(`/api/campaigns/${id}`),
@@ -185,6 +189,17 @@ export const campaignApi = {
 
   updateStatus: (id: string, status: string) =>
     request(`/api/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+
+  bulkAddCandidates: (campaignId: string, candidates: Array<{ email: string; name: string; phone?: string; resume?: string }>) =>
+    request<{ total: number; created: number; skipped: number; candidates: Array<Record<string, unknown>> }>(
+      `/api/campaigns/${campaignId}/candidates/bulk`,
+      { method: 'POST', body: JSON.stringify({ candidates }) }
+    ),
+
+  getCandidateEvaluation: (campaignId: string, candidateId: string) =>
+    request<{ candidate: Record<string, any>; session: Record<string, any> }>(
+      `/api/campaigns/${campaignId}/candidates/${candidateId}/evaluation`
+    ),
 };
 
 // ---- Interviews ----

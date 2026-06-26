@@ -16,6 +16,7 @@ const addCandidateSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1).max(255),
   phone: z.string().optional(),
+  resume: z.string().optional(),
 });
 
 const bulkAddCandidatesSchema = z.object({
@@ -76,6 +77,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         loginId,
         passwordHash,
         expiresAt,
+        resumeUrl: data.resume?.startsWith('http') ? data.resume : null,
+        metadata: data.resume ? { resumeText: data.resume } : {},
       },
     });
 
@@ -153,6 +156,8 @@ router.post('/bulk', async (req: AuthRequest, res: Response) => {
           loginId,
           passwordHash,
           expiresAt,
+          resumeUrl: c.resume?.startsWith('http') ? c.resume : null,
+          metadata: c.resume ? { resumeText: c.resume } : {},
         },
       });
 
@@ -209,6 +214,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         loginId: true,
         expiresAt: true,
         createdAt: true,
+        campaign: { select: { id: true, title: true } },
         _count: { select: { sessions: true } },
       },
       orderBy: { createdAt: 'desc' },

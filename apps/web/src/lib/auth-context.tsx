@@ -18,6 +18,7 @@ interface Company {
   name: string;
   slug: string;
   plan?: string;
+  hasGroqApiKey?: boolean;
 }
 
 interface CandidateUser {

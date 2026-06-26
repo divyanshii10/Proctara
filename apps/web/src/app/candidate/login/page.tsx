@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, ArrowRight, Loader2, UserCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 
-export default function CandidateLoginPage() {
+function CandidateLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { candidateLogin } = useAuth();
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
@@ -22,7 +23,12 @@ export default function CandidateLoginPage() {
     setLoading(true);
     try {
       await candidateLogin(loginId, password);
-      router.push('/candidate/portal');
+      const callbackUrl = searchParams.get('callbackUrl');
+      if (callbackUrl) {
+        router.push(callbackUrl);
+      } else {
+        router.push('/candidate/portal');
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Login failed';
       setError(msg);
@@ -126,5 +132,13 @@ export default function CandidateLoginPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function CandidateLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <CandidateLoginForm />
+    </Suspense>
   );
 }

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: proctara-api
+    env: node
+    region: ohio
+    plan: free
+    buildCommand: npm install && cd apps/api && npx prisma generate && cd ../.. && npx turbo run build --filter=@proctara/api
+    startCommand: cd apps/api && npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

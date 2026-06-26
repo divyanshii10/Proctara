@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -21,8 +22,24 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
+      // 1. NextAuth login (sets secure HTTP-only cookie to pass Middleware shield)
+      const res = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (res?.error) {
+        setError('Invalid credentials');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Original Context login (maintains localStorage token for existing API requests)
       await login(email, password);
+      
       router.push('/dashboard');
+      router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Login failed';
       setError(msg);

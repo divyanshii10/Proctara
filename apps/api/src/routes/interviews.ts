@@ -78,7 +78,7 @@ router.post('/', authenticateCompany, async (req: AuthRequest, res: Response) =>
           id: session.id,
           status: session.status,
           inviteToken: session.inviteToken,
-          inviteUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/interview/${session.inviteToken}`,
+          inviteUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/interview/${session.inviteToken}/setup`,
           candidate: { id: session.candidate.id, email: session.candidate.email, name: session.candidate.name },
           jobRole: { id: session.jobRole.id, title: session.jobRole.title },
           template: { id: session.template.id, name: session.template.name, durationMin: session.template.durationMin },
@@ -156,13 +156,13 @@ router.get('/:id', authenticateCompany, async (req: AuthRequest, res: Response) 
   res.json({ success: true, data: session });
 });
 
-// ---- Public Route (no auth — candidate joins via token) ----
+// ---- Candidate Authenticated Route ----
 
 /**
  * GET /api/interviews/join/:token
- * Candidate joins an interview via invite token (no auth required)
+ * Candidate joins an interview via invite token
  */
-router.get('/join/:token', async (req: Request, res: Response) => {
+router.get('/join/:token', authenticateCandidate, async (req: AuthRequest, res: Response) => {
   const token = req.params.token as string;
   const session = await prisma.interviewSession.findUnique({
     where: { inviteToken: token },
@@ -170,11 +170,18 @@ router.get('/join/:token', async (req: Request, res: Response) => {
       jobRole: { select: { title: true, skills: true, level: true } },
       template: { select: { name: true, durationMin: true, config: true } },
       company: { select: { name: true, logoUrl: true } },
+      candidate: { select: { id: true, email: true, name: true } },
     },
   });
 
   if (!session) {
     res.status(404).json({ success: false, error: 'Invalid or expired invite link' });
+    return;
+  }
+
+  // Ensure the logged in candidate owns this session
+  if (session.candidateId !== req.user!.userId) {
+    res.status(403).json({ success: false, error: 'Unauthorized to join this interview session' });
     return;
   }
 
@@ -191,6 +198,7 @@ router.get('/join/:token', async (req: Request, res: Response) => {
       jobRole: session.jobRole,
       template: session.template,
       status: session.status,
+      candidate: session.candidate,
     },
   });
 });

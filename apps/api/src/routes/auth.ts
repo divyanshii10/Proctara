@@ -105,7 +105,8 @@ router.post('/register', async (req: Request, res: Response) => {
       res.status(422).json({ success: false, error: 'Validation failed', details: err.errors });
       return;
     }
-    throw err;
+    logger.error({ err }, 'Registration error');
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -165,7 +166,8 @@ router.post('/login', async (req: Request, res: Response) => {
       res.status(422).json({ success: false, error: 'Validation failed', details: err.errors });
       return;
     }
-    throw err;
+    logger.error({ err }, 'Login error');
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -267,7 +269,8 @@ router.post('/google', async (req: Request, res: Response) => {
       res.status(422).json({ success: false, error: 'Validation failed', details: err.errors });
       return;
     }
-    throw err;
+    logger.error({ err }, 'Candidate login error');
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -330,7 +333,8 @@ router.post('/candidate/login', async (req: Request, res: Response) => {
       res.status(422).json({ success: false, error: 'Validation failed', details: err.errors });
       return;
     }
-    throw err;
+    logger.error({ err }, 'Me endpoint error');
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -394,6 +398,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
         name: user.company.name,
         slug: user.company.slug,
         plan: user.company.plan,
+        hasGroqApiKey: !!(user.company.settings as any)?.groqApiKey,
       },
     },
   });

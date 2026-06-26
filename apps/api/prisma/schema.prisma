@@ -58,6 +58,7 @@ model CompanyUser {
 model Candidate {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   companyId    String    @map("company_id") @db.Uuid
+  campaignId   String?   @map("campaign_id") @db.Uuid
   email        String    @db.VarChar(255)
   name         String?   @db.VarChar(255)
   phone        String?   @db.VarChar(50)
@@ -69,9 +70,10 @@ model Candidate {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaign Campaign?          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   sessions InterviewSession[]
 
-  @@unique([companyId, email])
+  @@unique([campaignId, email])
   @@map("candidates")
 }
 
@@ -92,10 +94,11 @@ model Campaign {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  jobRole  JobRole            @relation(fields: [jobRoleId], references: [id])
-  template InterviewTemplate  @relation(fields: [templateId], references: [id])
-  sessions InterviewSession[]
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobRole    JobRole            @relation(fields: [jobRoleId], references: [id])
+  template   InterviewTemplate  @relation(fields: [templateId], references: [id])
+  sessions   InterviewSession[]
+  candidates Candidate[]
 
   @@map("campaigns")
 }
@@ -194,7 +197,7 @@ model InterviewSession {
   metadata     Json      @default("{}")
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
-  candidate       Candidate        @relation(fields: [candidateId], references: [id])
+  candidate       Candidate        @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   jobRole          JobRole          @relation(fields: [jobRoleId], references: [id])
   template         InterviewTemplate @relation(fields: [templateId], references: [id])
   company          Company          @relation(fields: [companyId], references: [id])
@@ -261,10 +264,11 @@ model Evaluation {
   recommendation String?  @db.VarChar(20)
   scores         Json
   summary        String?  @db.Text
-  strengths      String[] @default([])
-  weaknesses     String[] @default([])
-  reportUrl      String?  @map("report_url")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  strengths          String[] @default([])
+  weaknesses         String[] @default([])
+  transcriptAnalysis Json?    @map("transcript_analysis")
+  reportUrl          String?  @map("report_url")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 

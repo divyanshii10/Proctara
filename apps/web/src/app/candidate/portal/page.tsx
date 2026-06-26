@@ -189,21 +189,9 @@ export default function CandidatePortalPage() {
                     </div>
                     <span className="text-xs text-gray-600">{session.company.name}</span>
                   </div>
-                  {session.evaluation && (
-                    <div className="text-right">
-                      <div className="text-lg font-bold font-mono text-white">
-                        {Number(session.evaluation.overallScore).toFixed(0)}
-                        <span className="text-gray-600 text-sm font-normal">/100</span>
-                      </div>
-                      <span className={`text-xs capitalize ${
-                        session.evaluation.recommendation === 'strong_yes' || session.evaluation.recommendation === 'yes'
-                          ? 'text-green-400' : session.evaluation.recommendation === 'maybe'
-                          ? 'text-yellow-400' : 'text-red-400'
-                      }`}>
-                        {session.evaluation.recommendation?.replace('_', ' ')}
-                      </span>
-                    </div>
-                  )}
+                  <div className="text-right">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Completed</span>
+                  </div>
                 </div>
               ))}
             </div>
