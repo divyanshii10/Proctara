@@ -1,5 +1,0 @@
-
-6. if candidate close full screen then end interview 
-10. resume field in text what if in url
-11. electronic device, tab switch, multi face detect, screen se bahar kuch second, if voice without lipsing , prompt injection (llm ko bhejke rules ke voilate)
-1. end greeting
