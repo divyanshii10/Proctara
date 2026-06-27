@@ -304,7 +304,7 @@ export default function InterviewPage() {
 
         faceDetector = await faceDetection.createDetector(faceDetection.SupportedModels.MediaPipeFaceDetector, { runtime: 'tfjs', maxFaces: 5 });
         objectDetector = await cocoSsd.load();
-        landmarksDetector = await faceLandmarks.createDetector(faceLandmarks.SupportedModels.MediaPipeFaceMesh, { runtime: 'tfjs', maxFaces: 1 });
+        landmarksDetector = await faceLandmarks.createDetector(faceLandmarks.SupportedModels.MediaPipeFaceMesh, { runtime: 'tfjs', maxFaces: 1, refineLandmarks: false });
 
         startProctoringLoop();
       } catch (err) {
