@@ -19,7 +19,8 @@ import {
   Sparkles,
   ExternalLink,
   ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  Download
 } from 'lucide-react';
 import { campaignApi } from '@/lib/api';
 
@@ -164,6 +165,31 @@ export default function CampaignDetailPage() {
     reader.readAsText(file);
   };
 
+  const handleExport = async () => {
+    try {
+      const token = localStorage.getItem('proctara_token');
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${API_BASE}/api/campaigns/${campaignId}/export`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) throw new Error('Failed to export');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `campaign_${campaignId}_report.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to export reports');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -247,6 +273,14 @@ export default function CampaignDetailPage() {
                 <Upload className="w-4.5 h-4.5 text-zinc-450" />
               )}
               Upload Candidates CSV
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-800 bg-white text-black text-sm font-semibold hover:bg-zinc-200 transition-all shadow-md focus:outline-none"
+            >
+              <Download className="w-4 h-4" />
+              Export Reports
             </button>
           </div>
         </div>

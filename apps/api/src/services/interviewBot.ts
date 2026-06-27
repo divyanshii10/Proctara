@@ -246,8 +246,9 @@ export async function evaluateSessionAndSave(
       },
     });
 
-    // Dispatch the email report notification
-    await sendEvaluationReportEmail(session, evaluation);
+    // The evaluation report is no longer emailed to the candidate.
+    // It can be downloaded as a CSV by the company from the dashboard.
+    // await sendEvaluationReportEmail(session, evaluation);
 
     return evaluation;
   } catch (err) {

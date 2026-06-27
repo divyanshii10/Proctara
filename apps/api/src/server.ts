@@ -101,6 +101,7 @@ io.on('connection', (socket) => {
           campaign: true,
           company: true,
           jobRole: true,
+          template: true,
           responses: { orderBy: { sequenceNum: 'asc' } },
         },
       });
@@ -125,9 +126,12 @@ io.on('connection', (socket) => {
 
       // Update status if pending or reset
       if (session.status === 'pending' || reset) {
+        const meta = (session.metadata as any) || {};
+        meta.violations = [];
+
         await prisma.interviewSession.update({
           where: { id: sessionId },
-          data: { status: 'in_progress', startedAt: new Date() },
+          data: { status: 'in_progress', startedAt: new Date(), metadata: meta },
         });
         session.status = 'in_progress';
       }
@@ -270,6 +274,7 @@ io.on('connection', (socket) => {
           campaign: true,
           company: true,
           jobRole: true,
+          template: true,
           responses: { orderBy: { sequenceNum: 'asc' } },
         },
       });

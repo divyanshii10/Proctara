@@ -669,4 +669,66 @@ router.get('/:campaignId/candidates/:candidateId/evaluation', async (req: AuthRe
   }
 });
 
+/**
+ * GET /api/campaigns/:id/export
+ * Export campaign sessions as CSV
+ */
+router.get('/:id/export', async (req: AuthRequest, res: Response) => {
+  try {
+    const campaignId = req.params.id as string;
+    const campaign = await prisma.campaign.findFirst({
+      where: { id: campaignId, companyId: req.user!.companyId },
+      include: {
+        sessions: {
+          where: { status: 'completed' },
+          include: {
+            candidate: { select: { email: true, name: true } },
+            evaluation: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!campaign) {
+      res.status(404).json({ success: false, error: 'Campaign not found' });
+      return;
+    }
+
+    const escapeCSV = (str: any) => {
+      if (str === null || str === undefined) return '';
+      const s = String(str);
+      if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    const headers = ['Candidate Name', 'Email', 'Status', 'Overall Score', 'Strengths', 'Areas For Improvement', 'Date'];
+    const rows = campaign.sessions.map((session: any) => {
+      const evalData = session.evaluation;
+      const strengths = evalData?.strengths?.join('; ') || '';
+      const weaknesses = evalData?.weaknesses?.join('; ') || '';
+      return [
+        escapeCSV(session.candidate.name || 'Unknown'),
+        escapeCSV(session.candidate.email),
+        escapeCSV(session.status),
+        escapeCSV(evalData?.overallScore?.toString() || ''),
+        escapeCSV(strengths),
+        escapeCSV(weaknesses),
+        escapeCSV(session.createdAt.toISOString())
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="campaign_${campaignId}_report.csv"`);
+    res.status(200).send(csvContent);
+  } catch (err) {
+    logger.error({ err }, 'Error exporting campaign reports');
+    res.status(500).json({ success: false, error: 'Failed to export reports' });
+  }
+});
+
 export default router;
