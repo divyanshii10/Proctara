@@ -19,6 +19,8 @@ import {
   HeartHandshake,
   Plus,
   Minus,
+  Mic,
+  ShieldAlert,
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════
@@ -387,12 +389,6 @@ const features = [
       'Our AI adjusts question difficulty in real-time based on candidate performance. No two interviews are the same.',
   },
   {
-    icon: Code2,
-    title: 'Live Coding Challenges',
-    description:
-      'In-browser Monaco editor with sandboxed execution. Support for JavaScript, Python, Java, C++, and Go.',
-  },
-  {
     icon: Shield,
     title: 'Bias-Free Evaluation',
     description:
@@ -409,12 +405,6 @@ const features = [
     title: 'Scale Effortlessly',
     description:
       'Conduct thousands of interviews simultaneously. From 10 to 10,000 candidates — same quality, same fairness.',
-  },
-  {
-    icon: Globe,
-    title: 'Enterprise Ready',
-    description:
-      'SOC 2 compliant architecture, ATS integrations, SSO support, and dedicated account management.',
   },
 ];
 
@@ -467,7 +457,7 @@ function FeaturesSection() {
           whileInView="visible"
           viewport={{ once: true, margin: '-40px' }}
           variants={stagger}
-          className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+          className="grid md:grid-cols-2 lg:grid-cols-2 gap-6 max-w-4xl mx-auto"
         >
           {features.map((feature, i) => (
             <motion.div
@@ -838,11 +828,11 @@ const faqs = [
   },
   {
     q: 'How does Proctara eliminate bias?',
-    a: 'All evaluations are text-based with blind scoring. We do not analyze video, voice, or accent. Scoring rubrics are standardized and applied consistently across all candidates for the same role.',
+    a: 'While Proctara actively monitors video and audio for secure proctoring, all evaluations are based purely on transcribed responses and blind scoring. We do not analyze visual appearance or accent for candidate scoring. Scoring rubrics are standardized and applied consistently across all candidates for the same role.',
   },
   {
-    q: 'What coding languages are supported?',
-    a: 'We support JavaScript, TypeScript, Python, Java, C++, Go, and Ruby. Code is executed in a sandboxed environment with real-time compilation and test case validation.',
+    q: 'Do you support live coding challenges?',
+    a: 'Our platform currently focuses on deep conversational AI interviews, assessing architectural knowledge, problem-solving, and verbal reasoning. We do not require a live IDE, making it accessible for candidates on any device.',
   },
   {
     q: 'Can I integrate Proctara with my existing ATS?',
@@ -850,7 +840,7 @@ const faqs = [
   },
   {
     q: 'Is my data secure?',
-    a: 'Proctara is built on SOC 2 Type II compliant infrastructure. All data is encrypted at rest and in transit. We offer SSO/SAML for enterprise customers and support data residency requirements.',
+    a: 'All candidate data and interview records are encrypted at rest and in transit. We ensure strict adherence to industry-standard data privacy and security protocols to keep candidate information safe.',
   },
 ];
 
@@ -1056,7 +1046,7 @@ function Footer() {
                 </a>
               </li>
               <li>
-                <a href="mailto:support@proctara.com" className="hover:text-white transition-colors">
+                <a href="mailto:proctara.ai@gmail.com" className="hover:text-white transition-colors">
                   Contact
                 </a>
               </li>
@@ -1093,7 +1083,7 @@ function Footer() {
             © {new Date().getFullYear()} Proctara. All rights reserved.
           </p>
           <p className="text-sm text-neutral-700">
-            support@proctara.com
+            proctara.ai@gmail.com
           </p>
         </div>
       </div>
