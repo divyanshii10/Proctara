@@ -74,7 +74,7 @@ export async function sendCandidateInviteEmail(options: InviteEmailOptions) {
       })
     });
     
-    const data = await res.json();
+    const data = await res.json() as any;
     if (!data.success) throw new Error(data.error || 'Webhook failed');
     
     logger.info({ email: to }, 'Candidate invite email sent via Webhook');
@@ -141,7 +141,7 @@ export async function sendEvaluationReportEmail(session: any, evaluation: any) {
       })
     });
 
-    const data = await res.json();
+    const data = await res.json() as any;
     if (!data.success) throw new Error(data.error || 'Webhook failed');
 
     logger.info({ email: testEmail, candidateName }, 'Evaluation report email sent via Webhook');

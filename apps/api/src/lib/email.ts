@@ -103,7 +103,7 @@ export const sendAssessmentEmail = async (
       })
     });
 
-    const data = await res.json();
+    const data = await res.json() as any;
     if (!data.success) throw new Error(data.error || 'Webhook failed');
 
     logger.info({ candidateEmail, jobTitle }, 'GAS assessment email sent successfully');
