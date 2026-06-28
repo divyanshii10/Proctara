@@ -58,6 +58,10 @@ export async function sendCandidateInviteEmail(options: InviteEmailOptions) {
   `;
 
   try {
+    if (!process.env.TEST_EMAIL || !process.env.TEST_EMAIL_APP_PASSWORD) {
+      logger.warn('Email credentials missing, skipping sendCandidateInviteEmail');
+      return { success: false, error: 'Email credentials missing' };
+    }
     const info = await transporter.sendMail({
       from: `"Proctara Assessments" <${process.env.TEST_EMAIL}>`,
       to,

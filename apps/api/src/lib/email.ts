@@ -12,6 +12,10 @@ export const sendAssessmentEmail = async (
   passwordRaw: string
 ) => {
   try {
+    if (!process.env.TEST_EMAIL || !process.env.TEST_EMAIL_APP_PASSWORD) {
+      logger.warn('Email credentials missing, skipping sendAssessmentEmail');
+      return;
+    }
     // 1. Create the Gmail transporter configuration
     const transporter = nodemailer.createTransport({
       service: 'gmail',
