@@ -578,20 +578,19 @@ router.post('/:campaignId/candidates/bulk', async (req: AuthRequest, res: Respon
         logger.info({ email: c.email, loginId, password: plaintextPassword }, 'Candidate credentials generated for testing');
       }
 
-      try {
-        await sendAssessmentEmail(
-          c.email,
-          c.name,
-          campaign.title,
-          testLink,
-          expiryFormatted,
-          campaign.durationMin,
-          loginId,
-          plaintextPassword
-        );
-      } catch (emailErr) {
+      // Fire and forget: send email asynchronously in the background so it doesn't block the API response
+      sendAssessmentEmail(
+        c.email,
+        c.name,
+        campaign.title,
+        testLink,
+        expiryFormatted,
+        campaign.durationMin,
+        loginId,
+        plaintextPassword
+      ).catch(emailErr => {
         logger.warn({ email: c.email, err: emailErr }, 'Failed to send invite email, but candidate was created');
-      }
+      });
 
       results.push({
         email: c.email,
