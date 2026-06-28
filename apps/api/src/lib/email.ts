@@ -12,20 +12,13 @@ export const sendAssessmentEmail = async (
   passwordRaw: string
 ) => {
   try {
-    if (!process.env.TEST_EMAIL || !process.env.TEST_EMAIL_APP_PASSWORD) {
-      logger.warn('Email credentials missing, skipping sendAssessmentEmail');
+    const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
+    if (!webhookUrl) {
+      logger.warn('GAS_EMAIL_WEBHOOK_URL missing, skipping sendAssessmentEmail');
       return;
     }
-    // 1. Create the Gmail transporter configuration
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.TEST_EMAIL,
-        pass: process.env.TEST_EMAIL_APP_PASSWORD, // The 16-character app password
-      },
-    });
 
-    // 2. Insert variables into the premium HTML layout template we designed
+    // 1. Insert variables into the premium HTML layout template we designed
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -98,20 +91,25 @@ export const sendAssessmentEmail = async (
       </html>
     `;
 
-    // 3. Define mail options
-    const mailOptions = {
-      from: `"Proctara Hiring Team" <${process.env.TEST_EMAIL}>`,
-      to: candidateEmail,
-      subject: `Interview Invitation: ${jobTitle} Assessment`,
-      html: htmlContent,
-    };
+    // 2. Send via Google Apps Script Webhook
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: candidateEmail,
+        name: 'Proctara Hiring Team',
+        subject: \`Interview Invitation: \${jobTitle} Assessment\`,
+        html: htmlContent
+      })
+    });
 
-    // 4. Send email execution
-    const info = await transporter.sendMail(mailOptions);
-    logger.info({ messageId: info.messageId, candidateEmail, jobTitle }, 'Gmail assessment email sent successfully');
-    return info;
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Webhook failed');
+
+    logger.info({ candidateEmail, jobTitle }, 'GAS assessment email sent successfully');
+    return data;
   } catch (err) {
-    logger.error({ err, candidateEmail, jobTitle }, 'Error sending Gmail assessment email');
+    logger.error({ err, candidateEmail, jobTitle }, 'Error sending GAS assessment email');
     throw err;
   }
 };

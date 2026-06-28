@@ -58,19 +58,27 @@ export async function sendCandidateInviteEmail(options: InviteEmailOptions) {
   `;
 
   try {
-    if (!process.env.TEST_EMAIL || !process.env.TEST_EMAIL_APP_PASSWORD) {
+    const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
+    if (!webhookUrl) {
       logger.warn('Email credentials missing, skipping sendCandidateInviteEmail');
       return { success: false, error: 'Email credentials missing' };
     }
-    const info = await transporter.sendMail({
-      from: `"Proctara Assessments" <${process.env.TEST_EMAIL}>`,
-      to,
-      subject: `Invitation: Technical Assessment for ${jobRoleTitle} at ${companyName}`,
-      html: htmlContent,
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to,
+        name: 'Proctara Assessments',
+        subject: \`Invitation: Technical Assessment for \${jobRoleTitle} at \${companyName}\`,
+        html: htmlContent
+      })
     });
     
-    logger.info({ messageId: info.messageId, email: to }, 'Candidate invite email sent');
-    return { success: true, messageId: info.messageId };
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Webhook failed');
+    
+    logger.info({ email: to }, 'Candidate invite email sent via Webhook');
+    return { success: true, messageId: 'webhook-' + Date.now() };
   } catch (error) {
     logger.error({ err: error, email: to }, 'Failed to send candidate invite email');
     return { success: false, error };
@@ -79,8 +87,9 @@ export async function sendCandidateInviteEmail(options: InviteEmailOptions) {
 
 export async function sendEvaluationReportEmail(session: any, evaluation: any) {
   try {
-    const testEmail = process.env.TEST_EMAIL;
-    if (!testEmail) return;
+    const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
+    const testEmail = process.env.TEST_EMAIL || 'test@example.com';
+    if (!webhookUrl) return;
 
     const candidateName = session.candidate?.name || 'Candidate';
     const roleTitle = session.jobRole?.title || 'Position';
@@ -121,13 +130,21 @@ export async function sendEvaluationReportEmail(session: any, evaluation: any) {
       </div>
     `;
 
-    const info = await transporter.sendMail({
-      from: `"Proctara Reports" <${testEmail}>`,
-      to: testEmail, // For testing, send to the same email
-      subject: `[Proctara] Interview Results Ready: ${candidateName} - ${roleTitle}`,
-      html: emailHtml,
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: process.env.TEST_EMAIL,
+        name: 'Proctara Evaluation',
+        subject: `[Proctara] Evaluation Ready: ${candidateName}`,
+        html: emailHtml
+      })
     });
-    logger.info({ messageId: info.messageId, to: testEmail }, 'Evaluation report email sent');
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Webhook failed');
+
+    logger.info({ email: testEmail, candidateName }, 'Evaluation report email sent via Webhook');
   } catch (error) {
     logger.error({ err: error }, 'Failed to send evaluation report email');
   }
