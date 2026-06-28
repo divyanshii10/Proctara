@@ -69,7 +69,7 @@ export async function sendCandidateInviteEmail(options: InviteEmailOptions) {
       body: JSON.stringify({
         to,
         name: 'Proctara Assessments',
-        subject: \`Invitation: Technical Assessment for \${jobRoleTitle} at \${companyName}\`,
+        subject: `Invitation: Technical Assessment for ${jobRoleTitle} at ${companyName}`,
         html: htmlContent
       })
     });

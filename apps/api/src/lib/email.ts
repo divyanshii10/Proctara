@@ -98,7 +98,7 @@ export const sendAssessmentEmail = async (
       body: JSON.stringify({
         to: candidateEmail,
         name: 'Proctara Hiring Team',
-        subject: \`Interview Invitation: \${jobTitle} Assessment\`,
+        subject: `Interview Invitation: ${jobTitle} Assessment`,
         html: htmlContent
       })
     });
