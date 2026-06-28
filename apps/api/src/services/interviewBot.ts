@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma';
 import { getAiClient, getModel } from './groqClient';
-import { sendEvaluationReportEmail } from './emailService';
+import { sendEvaluationReportEmail, sendCompletionEmail } from './emailService';
 import logger from '../lib/logger';
 import { generateSessionReport } from './aiEvaluation';
 
@@ -163,6 +163,7 @@ export async function evaluateSessionAndSave(
         jobRole: true,
         candidate: true,
         campaign: true,
+        company: true,
         responses: { orderBy: { sequenceNum: 'asc' } },
       },
     });
@@ -249,6 +250,19 @@ export async function evaluateSessionAndSave(
     // The evaluation report is no longer emailed to the candidate.
     // It can be downloaded as a CSV by the company from the dashboard.
     // await sendEvaluationReportEmail(session, evaluation);
+
+    try {
+      if (session.candidate.email && session.company) {
+        await sendCompletionEmail(
+          session.candidate.email,
+          session.candidate.name || 'Candidate',
+          session.campaign?.title || 'Assessment',
+          session.company.name
+        );
+      }
+    } catch (emailErr) {
+      logger.error({ err: emailErr, sessionId }, 'Failed to send completion email');
+    }
 
     return evaluation;
   } catch (err) {

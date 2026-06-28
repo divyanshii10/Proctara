@@ -149,3 +149,49 @@ export async function sendEvaluationReportEmail(session: any, evaluation: any) {
     logger.error({ err: error }, 'Failed to send evaluation report email');
   }
 }
+
+export async function sendCompletionEmail(
+  candidateEmail: string,
+  candidateName: string,
+  campaignName: string,
+  companyName: string
+) {
+  try {
+    const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
+    if (!webhookUrl) {
+      logger.warn('Email credentials missing, skipping sendCompletionEmail');
+      return { success: false, error: 'Email configuration missing' };
+    }
+
+    const emailHtml = `
+      <p>Hello ${candidateName},</p>
+      
+      <p>Thanks for completing the <strong>${campaignName}</strong> assessment. We've securely sent your submission and AI evaluation to <strong>${companyName}</strong>.</p>
+      
+      <p>Wish you all the best for your result! 🤞</p>
+      
+      <p><small>This is an automated message. Please <strong>do not</strong> reply to this. You'll need to contact <strong>${companyName}</strong> directly for any follow-up questions regarding your application status.</small></p>
+      
+      <p>Thanks,<br><strong>Proctara Team</strong></p>
+    `;
+
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: candidateEmail,
+        subject: `${campaignName} - Submission Confirmation`,
+        html: emailHtml
+      })
+    });
+
+    const data = await res.json() as any;
+    if (!data.success) throw new Error(data.error || 'Webhook failed');
+
+    logger.info({ email: candidateEmail, candidateName, campaignName }, 'Completion email sent via Webhook');
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to send completion email');
+  }
+}
