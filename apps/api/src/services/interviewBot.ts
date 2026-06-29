@@ -49,7 +49,7 @@ Generate Phase 2 Launch Question:`;
   try {
     const response = await client.chat.completions.create({
       model,
-      temperature: 0.7,
+      temperature: 0.3,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
@@ -58,7 +58,13 @@ Generate Phase 2 Launch Question:`;
       max_tokens: 300,
     });
 
-    return response.choices[0]?.message?.content?.trim() || '';
+    let rawContent = response.choices[0]?.message?.content?.trim() || '';
+    const firstBrace = rawContent.indexOf('{');
+    const lastBrace = rawContent.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      rawContent = rawContent.substring(firstBrace, lastBrace + 1);
+    }
+    return rawContent;
   } catch (err) {
     logger.error({ err }, 'Failed to generate initial question');
     return JSON.stringify({
@@ -130,7 +136,7 @@ Determine the current phase, process the candidate's last response, and generate
   try {
     const response = await client.chat.completions.create({
       model,
-      temperature: 0.7,
+      temperature: 0.3,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
@@ -139,7 +145,13 @@ Determine the current phase, process the candidate's last response, and generate
       max_tokens: 300,
     });
 
-    return response.choices[0]?.message?.content?.trim() || '';
+    let rawContent = response.choices[0]?.message?.content?.trim() || '';
+    const firstBrace = rawContent.indexOf('{');
+    const lastBrace = rawContent.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      rawContent = rawContent.substring(firstBrace, lastBrace + 1);
+    }
+    return rawContent;
   } catch (err) {
     logger.error({ err }, 'Failed to generate follow-up question');
     return JSON.stringify({
