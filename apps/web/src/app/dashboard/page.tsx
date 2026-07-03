@@ -448,7 +448,11 @@ export default function DashboardPage() {
                       >
                         <div>
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] uppercase px-2 py-0.5 rounded font-mono font-semibold bg-green-500/10 text-green-400 border border-green-500/20">
+                            <span className={`text-[10px] uppercase px-2 py-0.5 rounded font-mono font-semibold ${
+                              c.status === 'active' 
+                                ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                                : 'bg-zinc-800 text-zinc-400 border border-zinc-700/50'
+                            }`}>
                               {c.status}
                             </span>
                           </div>

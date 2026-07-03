@@ -220,11 +220,33 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       jobRole: { select: { title: true } },
       template: { select: { name: true, durationMin: true } },
       _count: { select: { sessions: true } },
+      sessions: {
+        where: { status: 'completed' },
+        select: { id: true },
+      }
     },
     orderBy: { createdAt: 'desc' },
   });
 
-  res.json({ success: true, data: campaigns });
+  const processedCampaigns = campaigns.map(c => {
+    const totalInvited = c._count.sessions;
+    const completedCount = c.sessions.length;
+    let displayStatus = c.status;
+
+    if (totalInvited > 0 && totalInvited === completedCount) {
+      displayStatus = 'completed';
+    }
+
+    // Remove the sessions array from the response payload
+    const { sessions, ...rest } = c;
+
+    return {
+      ...rest,
+      status: displayStatus,
+    };
+  });
+
+  res.json({ success: true, data: processedCampaigns });
 });
 
 /**
@@ -308,6 +330,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     success: true,
     data: {
       ...campaign,
+      status: (invitedCount > 0 && invitedCount === completedCount) ? 'completed' : campaign.status,
       metrics: {
         invited: invitedCount,
         completed: completedCount,
