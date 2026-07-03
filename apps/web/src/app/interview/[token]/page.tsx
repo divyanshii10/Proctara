@@ -13,6 +13,7 @@ import {
   Maximize,
   Sparkles,
   Clock,
+  Info,
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { interviewApi } from '@/lib/api';
@@ -71,6 +72,13 @@ export default function InterviewPage() {
   const [micVolume, setMicVolume] = useState(0);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const totalQuestions = 5;
+
+  // Having Trouble Modal States
+  const [showTroubleModal, setShowTroubleModal] = useState(false);
+  const [troubleIssueType, setTroubleIssueType] = useState('AI_NOT_SPEAKING');
+  const [troubleDescription, setTroubleDescription] = useState('');
+  const [isSubmittingTrouble, setIsSubmittingTrouble] = useState(false);
+  const [troubleSubmitted, setTroubleSubmitted] = useState(false);
 
   // Refs
   const socketRef = useRef<Socket | null>(null);
@@ -276,6 +284,32 @@ export default function InterviewPage() {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [loading, ended, error, lobbyConfirmed]);
+
+  const handleTroubleSubmit = async () => {
+    try {
+      setIsSubmittingTrouble(true);
+      await fetch(`${API_URL}/api/interviews/report-issue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          issueType: troubleIssueType,
+          description: troubleDescription,
+          currentQuestionIndex: currentQuestionNum
+        })
+      });
+      setTroubleSubmitted(true);
+      setTimeout(() => {
+        setShowTroubleModal(false);
+        setTroubleSubmitted(false);
+        setTroubleDescription('');
+      }, 4000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmittingTrouble(false);
+    }
+  };
 
   // AI Proctoring Loop (Vision & Audio)
   useEffect(() => {
@@ -1321,6 +1355,105 @@ export default function InterviewPage() {
           </div>
 
             </motion.div>
+        </AnimatePresence>
+
+        {/* Having Trouble Button */}
+        {hasStarted && !ended && (
+          <button
+            onClick={() => setShowTroubleModal(true)}
+            className="absolute bottom-6 right-6 text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800 px-3 py-1.5 rounded-full text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-zinc-800 z-40"
+          >
+            <Info className="w-3.5 h-3.5" />
+            Having trouble?
+          </button>
+        )}
+
+        {/* Trouble Reporting Modal */}
+        <AnimatePresence>
+          {showTroubleModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 max-w-md w-full shadow-2xl relative"
+              >
+                {troubleSubmitted ? (
+                  <div className="text-center py-6">
+                    <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Report Submitted</h3>
+                    <p className="text-sm text-zinc-400">
+                      Report submitted to engineering team. You may try refreshing the page if the issue persists.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-bold text-white mb-2">Report an Issue</h3>
+                    
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 mb-5 flex gap-2 items-start">
+                      <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <p className="text-xs text-emerald-300/90 leading-relaxed">
+                        Reporting an issue will not negatively impact your proctoring trust score.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4 mb-6">
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">What is happening?</label>
+                        <select
+                          value={troubleIssueType}
+                          onChange={(e) => setTroubleIssueType(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm rounded-lg p-3 focus:outline-none focus:border-amber-500/50"
+                        >
+                          <option value="AI_NOT_SPEAKING">Jordan is not speaking / Audio output failed</option>
+                          <option value="AI_STUCK_THINKING">Jordan is taking too long to respond / Stuck on thinking</option>
+                          <option value="MIC_ISSUE">My microphone is not being detected properly</option>
+                          <option value="PROCTORING_LAG">Webcam lag or false proctoring warnings</option>
+                          <option value="OTHER">Other technical difficulty</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">Additional details (Optional)</label>
+                        <textarea
+                          value={troubleDescription}
+                          onChange={(e) => setTroubleDescription(e.target.value)}
+                          placeholder="Describe what is happening right now..."
+                          maxLength={300}
+                          rows={3}
+                          className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm rounded-lg p-3 focus:outline-none focus:border-amber-500/50 resize-none placeholder:text-zinc-600"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800/50">
+                      <button
+                        onClick={() => setShowTroubleModal(false)}
+                        disabled={isSubmittingTrouble}
+                        className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleTroubleSubmit}
+                        disabled={isSubmittingTrouble}
+                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-white text-black hover:bg-zinc-200 transition-colors disabled:opacity-50 min-w-[140px]"
+                      >
+                        {isSubmittingTrouble ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit Report'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
     </div>

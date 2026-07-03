@@ -252,3 +252,108 @@ export async function sendCompletionEmail(
     logger.error({ err: error }, 'Failed to send completion email');
   }
 }
+
+export async function sendIssueAlertEmail({
+  candidateName,
+  candidateEmail,
+  companyName,
+  jobRole,
+  issueType,
+  description,
+  token
+}: {
+  candidateName: string;
+  candidateEmail: string;
+  companyName: string;
+  jobRole: string;
+  issueType: string;
+  description?: string;
+  token: string;
+}) {
+  try {
+    const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
+    const adminEmail = process.env.EMAIL_USER || process.env.TEST_EMAIL;
+
+    if (!adminEmail) {
+      logger.warn('Email config missing, skipping sendIssueAlertEmail');
+      return { success: false };
+    }
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Urgent Issue Report</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #fff0f0; padding: 20px;">
+        <div style="background-color: #ffffff; border: 2px solid #ef4444; border-radius: 8px; max-width: 600px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #b91c1c; margin-top: 0; display: flex; align-items: center; gap: 8px;">
+            🚨 Urgent Candidate Issue
+          </h2>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; width: 120px;">Candidate</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: 500;">${candidateName} (${candidateEmail})</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Company / Role</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: 500;">${companyName} - ${jobRole}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Issue Reported</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: bold; color: #b91c1c;">${issueType}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Session Token</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><code>${token}</code></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Timestamp</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${new Date().toISOString()}</td>
+            </tr>
+          </table>
+
+          <div style="background-color: #f9fafb; border-left: 4px solid #ef4444; padding: 16px; border-radius: 0 4px 4px 0;">
+            <p style="margin: 0; color: #4b5563; font-weight: 600; margin-bottom: 8px;">User Description:</p>
+            <p style="margin: 0; color: #111827; white-space: pre-wrap;">${description || 'No additional details provided'}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const emailSubject = `🚨 [URGENT ISSUE] Candidate Stuck: ${candidateName} (${companyName})`;
+
+    if (webhookUrl && process.env.NODE_ENV === 'production') {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: adminEmail,
+          subject: emailSubject,
+          html: emailHtml
+        })
+      });
+
+      const data = await res.json() as any;
+      if (!data.success) throw new Error(data.error || 'Webhook failed');
+      logger.info({ token }, 'Issue alert email sent successfully via webhook');
+    } else {
+      if (!process.env.TEST_EMAIL || !process.env.TEST_EMAIL_APP_PASSWORD) {
+        logger.warn('Email credentials missing, skipping nodemailer send');
+        return;
+      }
+      const info = await transporter.sendMail({
+        from: `"Proctara Hiring Team" <${process.env.TEST_EMAIL}>`,
+        to: adminEmail,
+        subject: emailSubject,
+        html: emailHtml,
+      });
+      logger.info({ token, messageId: info.messageId }, 'Issue alert email sent successfully via nodemailer');
+    }
+  } catch (error) {
+    logger.error({ err: error, token }, 'Failed to send issue alert email');
+  }
+}

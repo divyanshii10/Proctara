@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../lib/prisma';
 import { authenticateCompany, authenticateCandidate, authenticate, authorize, type AuthRequest } from '../middleware/auth';
+import { sendIssueAlertEmail } from '../services/emailService';
 import logger from '../lib/logger';
 
 const router = Router();
@@ -226,6 +227,53 @@ router.get('/my/sessions', authenticateCandidate, async (req: AuthRequest, res: 
   });
 
   res.json({ success: true, data: sessions });
+});
+
+/**
+ * POST /api/interviews/report-issue
+ * Report a technical issue during the interview
+ */
+router.post('/report-issue', async (req: Request, res: Response) => {
+  try {
+    const { token, issueType, description, currentQuestionIndex } = req.body;
+    
+    if (!token || !issueType) {
+      res.status(400).json({ success: false, error: 'Token and issueType are required' });
+      return;
+    }
+
+    const session = await prisma.interviewSession.findUnique({
+      where: { inviteToken: token },
+      include: {
+        candidate: true,
+        company: true,
+        jobRole: true,
+      }
+    });
+
+    if (!session) {
+      res.status(404).json({ success: false, error: 'Session not found' });
+      return;
+    }
+
+    // Fire and forget email dispatch to avoid blocking the UI
+    sendIssueAlertEmail({
+      candidateName: session.candidate.name || 'Unknown',
+      candidateEmail: session.candidate.email,
+      companyName: session.company.name,
+      jobRole: session.jobRole.title,
+      issueType: `${issueType} (Question: ${currentQuestionIndex || 'N/A'})`,
+      description,
+      token,
+    }).catch(err => {
+      logger.error({ err, token }, 'Non-blocking issue report email failed');
+    });
+
+    res.json({ success: true, message: 'Issue reported successfully' });
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to report issue');
+    res.status(500).json({ success: false, error: 'Failed to report issue' });
+  }
 });
 
 export default router;
