@@ -117,7 +117,7 @@ function CandidateLoginForm() {
 
           <div className="mt-6 pt-4 border-t border-white/[0.06]">
             <p className="text-xs text-gray-600 text-center">
-              Your login credentials were provided by your recruiter. If you haven&apos;t received them, please contact the hiring company.
+              Your login credentials were provided in your email. If you haven&apos;t received them, please contact the hiring company.
             </p>
           </div>
 
