@@ -5,6 +5,7 @@ export const sendAssessmentEmail = async (
   candidateEmail: string,
   candidateName: string,
   jobTitle: string,
+  companyName: string,
   testLink: string,
   expiryDate: string,
   duration: number,
@@ -13,10 +14,6 @@ export const sendAssessmentEmail = async (
 ) => {
   try {
     const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
-    if (!webhookUrl) {
-      logger.warn('GAS_EMAIL_WEBHOOK_URL missing, skipping sendAssessmentEmail');
-      return;
-    }
 
     // 1. Insert variables into the premium HTML layout template we designed
     const htmlContent = `
@@ -42,7 +39,7 @@ export const sendAssessmentEmail = async (
           </tr>
           <tr>
             <td style="font-size: 15px; line-height: 24px; color: #a2a2a8; padding-bottom: 24px;">
-              Thank you for your interest! You are invited to the next step in our process: an adaptive, conversational AI video interview.
+              Thank you for your interest! You are invited by <strong>${companyName}</strong> to the next step in our process: an adaptive, conversational AI video interview.
             </td>
           </tr>
           <tr>
@@ -83,7 +80,8 @@ export const sendAssessmentEmail = async (
           </tr>
           <tr>
             <td style="padding-top: 24px; font-size: 12px; line-height: 18px; color: #636366; text-align: center;">
-              This secure link is uniquely generated for your application email (${candidateEmail}) and can only be accessed once.
+              This secure link is uniquely generated for your application email (${candidateEmail}) and can only be accessed once.<br/><br/>
+              Please check your spam or junk folder if you don't receive further communications.
             </td>
           </tr>
         </table>
@@ -91,25 +89,51 @@ export const sendAssessmentEmail = async (
       </html>
     `;
 
-    // 2. Send via Google Apps Script Webhook
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    // 2. Send Email
+    // If webhook is available and we are in production, use it. Otherwise, fallback to Nodemailer for local testing.
+    if (webhookUrl && process.env.NODE_ENV === 'production') {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: candidateEmail,
+          name: 'Proctara Hiring Team',
+          subject: `Interview Invitation: ${jobTitle} Assessment at ${companyName}`,
+          html: htmlContent
+        })
+      });
+
+      const data = await res.json() as any;
+      if (!data.success) throw new Error(data.error || 'Webhook failed');
+
+      logger.info({ candidateEmail, jobTitle, companyName }, 'GAS assessment email sent successfully');
+      return data;
+    } else {
+      if (!process.env.TEST_EMAIL || !process.env.TEST_EMAIL_APP_PASSWORD) {
+        logger.warn('No webhook URL or email credentials found, skipping sendAssessmentEmail');
+        return;
+      }
+      
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.TEST_EMAIL,
+          pass: process.env.TEST_EMAIL_APP_PASSWORD,
+        },
+      });
+
+      const info = await transporter.sendMail({
+        from: `"Proctara Hiring Team" <${process.env.TEST_EMAIL}>`,
         to: candidateEmail,
-        name: 'Proctara Hiring Team',
-        subject: `Interview Invitation: ${jobTitle} Assessment`,
-        html: htmlContent
-      })
-    });
+        subject: `Interview Invitation: ${jobTitle} Assessment at ${companyName}`,
+        html: htmlContent,
+      });
 
-    const data = await res.json() as any;
-    if (!data.success) throw new Error(data.error || 'Webhook failed');
-
-    logger.info({ candidateEmail, jobTitle }, 'GAS assessment email sent successfully');
-    return data;
+      logger.info({ candidateEmail, jobTitle, companyName, messageId: info.messageId }, 'Assessment email sent successfully via Nodemailer');
+      return info;
+    }
   } catch (err) {
-    logger.error({ err, candidateEmail, jobTitle }, 'Error sending GAS assessment email');
+    logger.error({ err, candidateEmail, jobTitle, companyName }, 'Error sending assessment email');
     throw err;
   }
 };

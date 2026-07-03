@@ -32,6 +32,7 @@ interface InterviewInfo {
   company: { name: string };
   jobRole: { title: string; skills: string[] };
   template: { name: string; durationMin: number };
+  campaign?: { durationMin?: number };
   status: string;
   candidate?: { id: string; name: string; email: string };
 }
@@ -201,7 +202,7 @@ export default function InterviewPage() {
       .then(res => {
         const data = res.data as unknown as InterviewInfo;
         setInfo(data);
-        setTimeLeft(data.template.durationMin * 60);
+        setTimeLeft((data.campaign?.durationMin || data.template.durationMin) * 60);
         setLoading(false);
       })
       .catch((err) => {
@@ -246,16 +247,10 @@ export default function InterviewPage() {
       const isFull = !!document.fullscreenElement;
       setIsFullscreen(isFull);
       if (!isFull) {
-        fullscreenStrikesRef.current += 1;
-        if (fullscreenStrikesRef.current === 1) {
-          setTabWarning(true);
-          if (socketRef.current && infoRef.current) {
-            socketRef.current.emit('interview:violation', { sessionId: infoRef.current.sessionId, type: 'fullscreen_exit' });
-          }
-        } else if (fullscreenStrikesRef.current >= 2) {
-          // Strike 2: Auto-terminate the interview
-          handleEndInterview();
+        if (socketRef.current && infoRef.current) {
+          socketRef.current.emit('interview:violation', { sessionId: infoRef.current.sessionId, type: 'fullscreen_exit' });
         }
+        handleEndInterview();
       } else {
         setTabWarning(false);
       }
@@ -263,10 +258,10 @@ export default function InterviewPage() {
 
     const handleVisibility = () => {
       if (document.hidden) {
-        setTabWarning(true);
         if (socketRef.current && infoRef.current) {
           socketRef.current.emit('interview:violation', { sessionId: infoRef.current.sessionId, type: 'tab_switch' });
         }
+        handleEndInterview();
       }
     };
 
@@ -912,7 +907,7 @@ export default function InterviewPage() {
   const currentQuestion = messages.filter(m => m.role === 'ai' && m.type === 'question').slice(-1)[0]?.content || "Connecting with the AI interviewer...";
 
   // Calculate timer values
-  const totalDurationSeconds = info ? info.template.durationMin * 60 : 3600;
+  const totalDurationSeconds = info ? (info.campaign?.durationMin || info.template.durationMin) * 60 : 3600;
 
   if (!lobbyConfirmed && info) {
     return (
@@ -940,7 +935,7 @@ export default function InterviewPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                   <span className="text-zinc-500 text-xs font-bold uppercase block mb-1">Expected Duration</span>
-                  <span className="text-white text-sm font-medium">{info.template.durationMin} Minutes</span>
+                  <span className="text-white text-sm font-medium">{info.campaign?.durationMin || info.template.durationMin} Minutes</span>
                 </div>
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                   <span className="text-zinc-500 text-xs font-bold uppercase block mb-1">Format</span>

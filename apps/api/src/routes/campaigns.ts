@@ -583,6 +583,7 @@ router.post('/:campaignId/candidates/bulk', async (req: AuthRequest, res: Respon
         c.email,
         c.name,
         campaign.title,
+        company.name,
         testLink,
         expiryFormatted,
         campaign.durationMin,
@@ -731,6 +732,42 @@ router.get('/:id/export', async (req: AuthRequest, res: Response) => {
   } catch (err) {
     logger.error({ err }, 'Error exporting campaign reports');
     res.status(500).json({ success: false, error: 'Failed to export reports' });
+  }
+});
+// DELETE /api/campaigns/:id
+// Deletes a campaign and all associated candidates, sessions, and evaluations.
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
+  const companyId = req.user?.companyId;
+  const campaignId = req.params.id as string;
+
+  if (!companyId) {
+    res.status(401).json({ success: false, error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const campaign = await prisma.campaign.findFirst({
+      where: { id: campaignId, companyId },
+    });
+
+    if (!campaign) {
+      res.status(404).json({ success: false, error: 'Campaign not found' });
+      return;
+    }
+
+    // Execute deletions in a transaction to maintain data integrity
+    await prisma.$transaction([
+      prisma.interviewSession.deleteMany({ where: { campaignId } }),
+      prisma.candidate.deleteMany({ where: { campaignId } }),
+      prisma.campaign.delete({ where: { id: campaignId } }),
+    ]);
+
+    logger.info({ companyId, campaignId }, 'Campaign and associated records deleted successfully');
+
+    res.status(200).json({ success: true, message: 'Campaign deleted successfully' });
+  } catch (err) {
+    logger.error({ err, companyId, campaignId }, 'Error deleting campaign');
+    res.status(500).json({ success: false, error: 'Failed to delete campaign' });
   }
 });
 

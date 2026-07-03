@@ -26,6 +26,7 @@ interface InterviewInfo {
   company: { name: string };
   jobRole: { title: string; skills: string[] };
   template: { name: string; durationMin: number };
+  campaign?: { durationMin?: number };
 }
 
 export default function InterviewSetupPage() {
@@ -524,7 +525,7 @@ export default function InterviewSetupPage() {
                 <ul className="space-y-2.5">
                   <li className="flex gap-2.5 text-[11px] text-zinc-500 leading-relaxed">
                     <Clock className="w-4 h-4 text-zinc-650 shrink-0 mt-0.5" />
-                    <span>Timed Assessment: Timed dynamic assessment for {interviewInfo?.template.durationMin || 45} minutes.</span>
+                    <span>Timed Assessment: Timed dynamic assessment for {interviewInfo?.campaign?.durationMin || interviewInfo?.template?.durationMin || 45} minutes.</span>
                   </li>
                   <li className="flex gap-2.5 text-[11px] text-zinc-500 leading-relaxed">
                     <MonitorSmartphone className="w-4 h-4 text-zinc-650 shrink-0 mt-0.5" />

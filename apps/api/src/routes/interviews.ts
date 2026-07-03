@@ -169,6 +169,7 @@ router.get('/join/:token', authenticateCandidate, async (req: AuthRequest, res: 
     include: {
       jobRole: { select: { title: true, skills: true, level: true } },
       template: { select: { name: true, durationMin: true, config: true } },
+      campaign: { select: { durationMin: true } },
       company: { select: { name: true, logoUrl: true } },
       candidate: { select: { id: true, email: true, name: true } },
     },
@@ -197,6 +198,7 @@ router.get('/join/:token', authenticateCandidate, async (req: AuthRequest, res: 
       company: session.company,
       jobRole: session.jobRole,
       template: session.template,
+      campaign: session.campaign,
       status: session.status,
       candidate: session.candidate,
     },

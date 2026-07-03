@@ -102,8 +102,7 @@ export default function DashboardPage() {
 
   // Step 2 states: Test configurations (AI Video Interview configs)
   const [aiTone, setAiTone] = useState<'strict' | 'friendly' | 'professional'>('professional');
-  const [thinkTime, setThinkTime] = useState(30);
-  const [retakeLimit, setRetakeLimit] = useState(0);
+
   const [groqApiKey, setGroqApiKey] = useState('');
   const [saveAsGlobalDefault, setSaveAsGlobalDefault] = useState(false);
   const [hasStoredGroqApiKey, setHasStoredGroqApiKey] = useState(false);
@@ -165,6 +164,7 @@ export default function DashboardPage() {
       fetchData();
     }
   }, [user, fetchData]);
+
 
   // Copy invite link from Step 4 Success screen at index
   const handleCopyLinkIndex = (url: string, index: number) => {
@@ -267,8 +267,6 @@ export default function DashboardPage() {
         durationMin,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         tone: aiTone,
-        thinkTime,
-        retakeLimit,
         groqApiKey: groqApiKey.trim() || null,
         saveAsGlobalDefault,
       };
@@ -302,8 +300,6 @@ export default function DashboardPage() {
     setSelectedQuestions({});
     setAiTone('professional');
     setCustomQuestions(['']);
-    setThinkTime(30);
-    setRetakeLimit(0);
     setCandidateName('');
     setCandidateEmail('');
     setGeneratedInviteUrl('');
@@ -455,7 +451,6 @@ export default function DashboardPage() {
                             <span className="text-[10px] uppercase px-2 py-0.5 rounded font-mono font-semibold bg-green-500/10 text-green-400 border border-green-500/20">
                               {c.status}
                             </span>
-                            <span className="text-[10px] text-gray-500">{new Date(c.createdAt).toLocaleDateString()}</span>
                           </div>
                           <h3 className="text-base font-bold text-white mb-1">{c.title}</h3>
                           <p className="text-xs text-gray-400 font-medium">{c.jobRole?.title}</p>
@@ -765,33 +760,8 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          <div className="col-span-3 grid grid-cols-2 gap-4 mt-1">
-                            <div>
-                              <label className="block text-xs font-medium text-zinc-400 mb-1.5 font-sans">Think Time (Sec)</label>
-                              <input
-                                type="number"
-                                required
-                                min={10}
-                                max={120}
-                                value={thinkTime}
-                                onChange={(e) => setThinkTime(Number(e.target.value))}
-                                className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-700/50 rounded-xl px-3.5 py-2 text-xs focus:outline-none text-zinc-200"
-                              />
-                            </div>
 
-                            <div>
-                              <label className="block text-xs font-medium text-zinc-400 mb-1.5 font-sans">Retakes Limit</label>
-                              <input
-                                type="number"
-                                required
-                                min={0}
-                                max={5}
-                                value={retakeLimit}
-                                onChange={(e) => setRetakeLimit(Number(e.target.value))}
-                                className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-700/50 rounded-xl px-3.5 py-2 text-xs focus:outline-none text-zinc-200"
-                              />
-                            </div>
-                          </div>
+
                         </div>
 
                         <div>

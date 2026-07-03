@@ -20,7 +20,8 @@ import {
   ExternalLink,
   ChevronRight,
   ShieldAlert,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import { campaignApi } from '@/lib/api';
 
@@ -190,6 +191,22 @@ export default function CampaignDetailPage() {
     }
   };
 
+  const handleDeleteCampaign = async () => {
+    if (!confirm('Are you sure you want to delete this campaign? All candidates and sessions will be permanently removed.')) return;
+
+    try {
+      const res = await campaignApi.delete(campaignId);
+      if (res.success) {
+        router.push('/dashboard');
+      } else {
+        alert('Failed to delete campaign');
+      }
+    } catch (err) {
+      console.error('Failed to delete campaign', err);
+      alert('Failed to delete campaign');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -254,6 +271,13 @@ export default function CampaignDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleDeleteCampaign}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-500 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Campaign
+            </button>
             <input
               type="file"
               ref={fileInputRef}

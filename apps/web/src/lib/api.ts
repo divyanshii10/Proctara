@@ -181,6 +181,9 @@ export const campaignApi = {
   get: (id: string) =>
     request<Record<string, unknown>>(`/api/campaigns/${id}`),
 
+  delete: (id: string) =>
+    request<Record<string, unknown>>(`/api/campaigns/${id}`, { method: 'DELETE' }),
+
   invite: (campaignId: string, candidateIds: string[]) =>
     request<{ invited: number; skipped: number; sessions: Array<Record<string, unknown>> }>(
       `/api/campaigns/${campaignId}/invite`,
