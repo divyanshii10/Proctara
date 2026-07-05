@@ -345,13 +345,12 @@ export async function sendIssueAlertEmail({
 }) {
   try {
     const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
-    const adminEmail = process.env.EMAIL_USER || process.env.TEST_EMAIL || 'proctara.ai@gmail.com';
-
-    if (!adminEmail) {
-      logger.warn('Email config missing, skipping sendIssueAlertEmail');
-      console.log("[DEBUG] adminEmail is undefined.");
-      return { success: false };
+    if (!webhookUrl) {
+      logger.warn('Email credentials missing, skipping sendIssueAlertEmail');
+      return { success: false, error: 'Email credentials missing' };
     }
+
+    const adminEmail = process.env.EMAIL_USER || process.env.TEST_EMAIL || 'proctara.ai@gmail.com';
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -405,14 +404,6 @@ export async function sendIssueAlertEmail({
       </body>
       </html>
     `;
-
-    const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
-    if (!webhookUrl) {
-      logger.warn('Email credentials missing, skipping sendIssueAlertEmail');
-      return { success: false, error: 'Email credentials missing' };
-    }
-
-    const adminEmail = process.env.EMAIL_USER || process.env.TEST_EMAIL || 'proctara.ai@gmail.com';
 
     const emailSubject = `🚨 [URGENT ISSUE] Candidate Stuck: ${candidateName} (${companyName})`;
 
