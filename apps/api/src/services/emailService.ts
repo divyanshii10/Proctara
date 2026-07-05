@@ -345,11 +345,11 @@ export async function sendIssueAlertEmail({
 }) {
   try {
     const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
-    const adminEmail = process.env.EMAIL_USER || process.env.TEST_EMAIL;
+    const adminEmail = process.env.EMAIL_USER || process.env.TEST_EMAIL || 'proctara.ai@gmail.com';
 
     if (!adminEmail) {
       logger.warn('Email config missing, skipping sendIssueAlertEmail');
-      console.log("[DEBUG] adminEmail is undefined. TEST_EMAIL or EMAIL_USER is missing in env vars.");
+      console.log("[DEBUG] adminEmail is undefined.");
       return { success: false };
     }
 
@@ -406,43 +406,34 @@ export async function sendIssueAlertEmail({
       </html>
     `;
 
+    const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
+    if (!webhookUrl) {
+      logger.warn('Email credentials missing, skipping sendIssueAlertEmail');
+      return { success: false, error: 'Email credentials missing' };
+    }
+
+    const adminEmail = process.env.EMAIL_USER || process.env.TEST_EMAIL || 'proctara.ai@gmail.com';
+
     const emailSubject = `🚨 [URGENT ISSUE] Candidate Stuck: ${candidateName} (${companyName})`;
 
-    if (webhookUrl) {
-      console.log("[DEBUG] Using webhook URL for sendIssueAlertEmail");
-      console.log("[DEBUG] Sending to:", adminEmail);
-      const res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: adminEmail,
-          subject: emailSubject,
-          html: emailHtml
-        })
-      });
-
-      const data = await res.json() as any;
-      if (!data.success) throw new Error(data.error || 'Webhook failed');
-      logger.info({ token }, 'Issue alert email sent successfully via webhook');
-      console.log("[DEBUG] Successfully sent via webhook");
-    } else {
-      console.log("[DEBUG] Using nodemailer for sendIssueAlertEmail");
-      if (!process.env.TEST_EMAIL || !process.env.TEST_EMAIL_APP_PASSWORD) {
-        logger.warn('Email credentials missing, skipping nodemailer send');
-        console.log("[DEBUG] Email credentials missing");
-        return;
-      }
-      const info = await getTransporter().sendMail({
-        from: `"Proctara Hiring Team" <${process.env.TEST_EMAIL}>`,
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         to: adminEmail,
+        name: 'Proctara Alerts',
         subject: emailSubject,
-        html: emailHtml,
-      });
-      logger.info({ token, messageId: info.messageId }, 'Issue alert email sent successfully via nodemailer');
-      console.log("[DEBUG] Successfully sent via nodemailer:", info.messageId);
-    }
+        html: emailHtml
+      })
+    });
+
+    const data = await res.json() as any;
+    if (!data.success) throw new Error(data.error || 'Webhook failed');
+    
+    logger.info({ token }, 'Issue alert email sent successfully via webhook');
+    return { success: true, messageId: 'webhook-' + Date.now() };
   } catch (error) {
     logger.error({ err: error, token }, 'Failed to send issue alert email');
-    console.error("[DEBUG] Error in sendIssueAlertEmail:", error);
+    return { success: false, error };
   }
 }
