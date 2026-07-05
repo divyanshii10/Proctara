@@ -349,6 +349,7 @@ export async function sendIssueAlertEmail({
 
     if (!adminEmail) {
       logger.warn('Email config missing, skipping sendIssueAlertEmail');
+      console.log("[DEBUG] adminEmail is undefined. TEST_EMAIL or EMAIL_USER is missing in env vars.");
       return { success: false };
     }
 
@@ -371,12 +372,20 @@ export async function sendIssueAlertEmail({
               <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: 500;">${candidateName} (${candidateEmail})</td>
             </tr>
             <tr>
-              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Company / Role</td>
-              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: 500;">${companyName} - ${jobRole}</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Company</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: 500;">${companyName}</td>
             </tr>
             <tr>
-              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Issue Reported</td>
-              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: bold; color: #b91c1c;">${issueType}</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Role</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: 500;">${jobRole}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Issue Type</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-weight: 500;">
+                <span style="background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-size: 14px;">
+                  ${issueType}
+                </span>
+              </td>
             </tr>
             <tr>
               <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Session Token</td>
@@ -401,12 +410,12 @@ export async function sendIssueAlertEmail({
 
     if (webhookUrl) {
       console.log("[DEBUG] Using webhook URL for sendIssueAlertEmail");
+      console.log("[DEBUG] Sending to:", adminEmail);
       const res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: adminEmail,
-          name: 'Proctara Alerts',
           subject: emailSubject,
           html: emailHtml
         })
