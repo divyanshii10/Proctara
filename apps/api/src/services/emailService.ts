@@ -1,14 +1,19 @@
 import nodemailer from 'nodemailer';
 import logger from '../lib/logger';
 
-// Create reusable transporter object using SMTP transport
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.TEST_EMAIL,
-    pass: process.env.TEST_EMAIL_APP_PASSWORD,
-  },
-});
+let _transporter: nodemailer.Transporter | null = null;
+function getTransporter() {
+  if (!_transporter) {
+    _transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.TEST_EMAIL,
+        pass: process.env.TEST_EMAIL_APP_PASSWORD,
+      },
+    });
+  }
+  return _transporter;
+}
 
 export interface InviteEmailOptions {
   to: string;
@@ -81,6 +86,74 @@ export async function sendCandidateInviteEmail(options: InviteEmailOptions) {
     return { success: true, messageId: 'webhook-' + Date.now() };
   } catch (error) {
     logger.error({ err: error, email: to }, 'Failed to send candidate invite email');
+    return { success: false, error };
+  }
+}
+
+export async function sendNewCredentialsEmail(options: InviteEmailOptions) {
+  const { to, candidateName, companyName, jobRoleTitle, loginId, passwordRaw, inviteUrl } = options;
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+      <div style="background-color: #0f172a; padding: 20px; text-align: center;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Proctara Support</h1>
+      </div>
+      <div style="padding: 30px; background-color: #ffffff;">
+        <h2 style="color: #333333; margin-top: 0;">Hello ${candidateName || 'Candidate'},</h2>
+        <p style="color: #555555; line-height: 1.6;">
+          We received your issue report regarding your technical assessment for the <strong>${jobRoleTitle}</strong> position at <strong>${companyName}</strong>.
+        </p>
+        <p style="color: #555555; line-height: 1.6;">
+          Your session has been reviewed, and we are providing you with new credentials to continue your assessment.
+        </p>
+        
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin: 25px 0;">
+          <h3 style="margin-top: 0; color: #0f172a; font-size: 16px;">Your New Login Credentials</h3>
+          <p style="margin: 5px 0; color: #475569;"><strong>Login ID:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">${loginId}</code></p>
+          <p style="margin: 5px 0; color: #475569;"><strong>Password:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">${passwordRaw}</code></p>
+        </div>
+
+        <p style="color: #555555; line-height: 1.6;">
+          Please log in to the candidate portal using the new credentials above to resume your interview process. Ensure you are in a quiet environment and your camera and microphone are working.
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${inviteUrl}" style="background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block;">
+            Access Candidate Portal
+          </a>
+        </div>
+        
+        <p style="color: #777777; font-size: 13px; text-align: center; border-top: 1px solid #eeeeee; padding-top: 20px; margin-bottom: 0;">
+          This is an automated message from Proctara on behalf of ${companyName}. Please do not reply to this email.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
+    if (!webhookUrl) {
+      logger.warn('Email credentials missing, skipping sendNewCredentialsEmail');
+      return { success: false, error: 'Email credentials missing' };
+    }
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to,
+        name: 'Proctara Support',
+        subject: `New Credentials: Technical Assessment for ${jobRoleTitle} at ${companyName}`,
+        html: htmlContent
+      })
+    });
+    
+    const data = await res.json() as any;
+    if (!data.success) throw new Error(data.error || 'Webhook failed');
+    
+    logger.info({ email: to }, 'New credentials email sent via Webhook');
+    return { success: true, messageId: 'webhook-' + Date.now() };
+  } catch (error) {
+    logger.error({ err: error, email: to }, 'Failed to send new credentials email');
     return { success: false, error };
   }
 }
@@ -326,12 +399,13 @@ export async function sendIssueAlertEmail({
 
     const emailSubject = `🚨 [URGENT ISSUE] Candidate Stuck: ${candidateName} (${companyName})`;
 
-    if (webhookUrl && process.env.NODE_ENV === 'production') {
+    if (webhookUrl) {
       const res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: adminEmail,
+          name: 'Proctara Alerts',
           subject: emailSubject,
           html: emailHtml
         })
@@ -345,7 +419,7 @@ export async function sendIssueAlertEmail({
         logger.warn('Email credentials missing, skipping nodemailer send');
         return;
       }
-      const info = await transporter.sendMail({
+      const info = await getTransporter().sendMail({
         from: `"Proctara Hiring Team" <${process.env.TEST_EMAIL}>`,
         to: adminEmail,
         subject: emailSubject,
