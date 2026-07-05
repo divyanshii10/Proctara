@@ -1,28 +1,44 @@
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-console.log("TEST_EMAIL:", process.env.TEST_EMAIL);
-console.log("TEST_EMAIL_APP_PASSWORD length:", process.env.TEST_EMAIL_APP_PASSWORD?.length);
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.TEST_EMAIL,
-    pass: process.env.TEST_EMAIL_APP_PASSWORD,
-  },
-});
+let _transporter = null;
+function getTransporter() {
+  if (!_transporter) {
+    _transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.TEST_EMAIL,
+        pass: process.env.TEST_EMAIL_APP_PASSWORD,
+      },
+    });
+  }
+  return _transporter;
+}
 
 async function main() {
-  try {
-    const info = await transporter.sendMail({
-      from: process.env.TEST_EMAIL,
-      to: process.env.TEST_EMAIL,
-      subject: "Test Email from Script",
-      text: "This is a test email.",
-    });
-    console.log("Message sent: %s", info.messageId);
-  } catch (err) {
-    console.error("Error sending email:", err.message);
+  const adminEmail = process.env.EMAIL_USER || process.env.TEST_EMAIL;
+  console.log("adminEmail:", adminEmail);
+  
+  if (!adminEmail) {
+    console.log('Email config missing');
+    return;
+  }
+  
+  const webhookUrl = process.env.GAS_EMAIL_WEBHOOK_URL;
+  if (webhookUrl) {
+     console.log("Using webhook");
+  } else {
+    try {
+      const info = await getTransporter().sendMail({
+        from: `"Proctara Hiring Team" <${process.env.TEST_EMAIL}>`,
+        to: adminEmail,
+        subject: "Test Issue Alert",
+        html: "<p>Test</p>",
+      });
+      console.log('Issue alert email sent successfully via nodemailer', info.messageId);
+    } catch (err) {
+      console.error("Nodemailer error:", err);
+    }
   }
 }
 

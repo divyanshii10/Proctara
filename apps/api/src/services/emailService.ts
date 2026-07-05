@@ -400,6 +400,7 @@ export async function sendIssueAlertEmail({
     const emailSubject = `🚨 [URGENT ISSUE] Candidate Stuck: ${candidateName} (${companyName})`;
 
     if (webhookUrl) {
+      console.log("[DEBUG] Using webhook URL for sendIssueAlertEmail");
       const res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -414,9 +415,12 @@ export async function sendIssueAlertEmail({
       const data = await res.json() as any;
       if (!data.success) throw new Error(data.error || 'Webhook failed');
       logger.info({ token }, 'Issue alert email sent successfully via webhook');
+      console.log("[DEBUG] Successfully sent via webhook");
     } else {
+      console.log("[DEBUG] Using nodemailer for sendIssueAlertEmail");
       if (!process.env.TEST_EMAIL || !process.env.TEST_EMAIL_APP_PASSWORD) {
         logger.warn('Email credentials missing, skipping nodemailer send');
+        console.log("[DEBUG] Email credentials missing");
         return;
       }
       const info = await getTransporter().sendMail({
@@ -426,8 +430,10 @@ export async function sendIssueAlertEmail({
         html: emailHtml,
       });
       logger.info({ token, messageId: info.messageId }, 'Issue alert email sent successfully via nodemailer');
+      console.log("[DEBUG] Successfully sent via nodemailer:", info.messageId);
     }
   } catch (error) {
     logger.error({ err: error, token }, 'Failed to send issue alert email');
+    console.error("[DEBUG] Error in sendIssueAlertEmail:", error);
   }
 }
