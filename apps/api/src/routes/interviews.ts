@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../lib/prisma';
 import { authenticateCompany, authenticateCandidate, authenticate, authorize, type AuthRequest } from '../middleware/auth';
-import { sendIssueAlertEmail } from '../services/emailService';
+import { sendIssueAlertEmail, sendNewCredentialsEmail } from '../services/emailService';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import logger from '../lib/logger';
 
 const router = Router();
@@ -269,7 +271,35 @@ router.post('/report-issue', async (req: Request, res: Response) => {
       logger.error({ err, token }, 'Non-blocking issue report email failed');
     });
 
-    res.json({ success: true, message: 'Issue reported successfully' });
+    // Generate new credentials
+    const newPasswordRaw = crypto.randomBytes(6).toString('base64url'); // 8 chars, URL-safe
+    const passwordHash = await bcrypt.hash(newPasswordRaw, 10);
+    const newLoginId = `${session.company.slug || session.company.name.replace(/\\s+/g, '-').toLowerCase()}-${crypto.randomBytes(4).toString('hex')}`;
+
+    // Update candidate record
+    await prisma.candidate.update({
+      where: { id: session.candidateId },
+      data: {
+        loginId: newLoginId,
+        passwordHash,
+      }
+    });
+
+    // Fire and forget send new credentials email
+    const inviteUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/interview/${session.inviteToken}/setup`;
+    sendNewCredentialsEmail({
+      to: session.candidate.email,
+      candidateName: session.candidate.name || 'Candidate',
+      companyName: session.company.name,
+      jobRoleTitle: session.jobRole.title,
+      loginId: newLoginId,
+      passwordRaw: newPasswordRaw,
+      inviteUrl
+    }).catch(err => {
+      logger.error({ err, email: session.candidate.email }, 'Non-blocking new credentials email failed');
+    });
+
+    res.json({ success: true, message: 'Issue reported successfully. New credentials have been sent to your email.' });
   } catch (error) {
     logger.error({ err: error }, 'Failed to report issue');
     res.status(500).json({ success: false, error: 'Failed to report issue' });
