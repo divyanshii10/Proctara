@@ -72,6 +72,28 @@ interface QuestionPoolItem {
   topic: string;
 }
 
+const DynamicAvatar = ({ email, sizeClass = "w-5 h-5", borderClass = "border border-black" }: { email: string, sizeClass?: string, borderClass?: string }) => {
+  const [error, setError] = useState(false);
+  const initials = email.split('@')[0].substring(0, 2).toUpperCase();
+  
+  if (error) {
+    return (
+      <div className={`${sizeClass} rounded-full bg-white/[0.08] text-slate-300 font-semibold text-[10px] flex items-center justify-center shrink-0 ${borderClass}`}>
+        {initials}
+      </div>
+    );
+  }
+  
+  return (
+    <img 
+      src={`https://unavatar.io/${email}?fallback=false`}
+      alt={email}
+      onError={() => setError(true)}
+      className={`${sizeClass} rounded-full object-cover shrink-0 ${borderClass}`}
+    />
+  );
+};
+
 export default function DashboardPage() {
   const { user, company, logout, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -99,6 +121,14 @@ export default function DashboardPage() {
   const [testType, setTestType] = useState<'coding' | 'video'>('video');
   const [durationMin, setDurationMin] = useState(45);
   const [expiresAt, setExpiresAt] = useState('');
+  const [selectedLanguages, setSelectedLanguages] = useState({
+    javascript: true,
+    python: true,
+    java: false,
+    cpp: false,
+  });
+  
+
 
   // Step 2 states: Test configurations (AI Video Interview configs)
   const [aiTone, setAiTone] = useState<'strict' | 'friendly' | 'professional'>('professional');
@@ -119,10 +149,6 @@ export default function DashboardPage() {
   const [copiedLinkIndex, setCopiedLinkIndex] = useState<number | null>(null);
 
   // Legacy state placeholders to prevent compilation issues
-  const [selectedLanguages, setSelectedLanguages] = useState<Record<string, boolean>>({
-    javascript: true,
-    python: true,
-  });
   const [selectedQuestions, setSelectedQuestions] = useState<Record<string, boolean>>({});
   const [questionPool, setQuestionPool] = useState<QuestionPoolItem[]>([]);
   const [showQuestionDropdown, setShowQuestionDropdown] = useState(false);
@@ -263,12 +289,13 @@ export default function DashboardPage() {
       const payload = {
         roleTitle,
         jobDescription,
-        testType: 'video',
+        testType,
         durationMin,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         tone: aiTone,
         groqApiKey: groqApiKey.trim() || null,
         saveAsGlobalDefault,
+
       };
 
       const res = await campaignApi.create(payload);
@@ -296,8 +323,10 @@ export default function DashboardPage() {
     setSelectedLanguages({
       javascript: true,
       python: true,
+      java: false,
+      cpp: false,
     });
-    setSelectedQuestions({});
+
     setAiTone('professional');
     setCustomQuestions(['']);
     setCandidateName('');
@@ -321,66 +350,92 @@ export default function DashboardPage() {
   }
 
   const stats = [
-    { label: 'Total Interviews', value: analytics?.totalInterviews ?? 0, icon: ClipboardCheck, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    { label: 'Completed', value: analytics?.completedInterviews ?? 0, icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-500/10' },
-    { label: 'Avg Score', value: analytics?.averageScore ? `${Number(analytics.averageScore).toFixed(0)}%` : '—', icon: Percent, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-    { label: 'Active Roles', value: analytics?.activeRoles ?? 0, icon: Briefcase, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+    { label: 'Total Interviews', title: 'Total Pipeline', value: analytics?.totalInterviews ?? 0, icon: ClipboardCheck, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+    { label: 'Completed', title: 'Evaluation Progress', value: analytics?.completedInterviews ?? 0, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    { label: 'Avg Score', title: 'Scoring Metrics', value: analytics?.averageScore ? `${Number(analytics.averageScore).toFixed(0)}%` : '—', icon: Percent, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+    { label: 'Active Roles', title: 'Active Vacancies', value: analytics?.activeRoles ?? 0, icon: Briefcase, color: 'text-purple-400', bg: 'bg-purple-500/10' },
   ];
 
   return (
-    <div className="min-h-screen bg-black flex text-white relative">
-      {/* Glow gradient background */}
+    <div className="min-h-screen bg-black flex text-white relative font-sans">
+      {/* Ambient warm glow - top center (amber/warm) */}
       <div
-        className="fixed top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[550px] pointer-events-none z-0 opacity-40"
-        style={{ background: 'radial-gradient(ellipse 65% 55% at 50% 0%, rgba(200,140,40,0.07) 0%, transparent 68%)' }}
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[1400px] h-[800px] pointer-events-none z-0"
+        style={{
+          background: 'radial-gradient(ellipse 70% 60% at 50% 0%, rgba(200, 150, 80, 0.25) 0%, rgba(160, 110, 50, 0.12) 30%, transparent 65%)',
+        }}
+      />
+      {/* Left blue accent */}
+      <div
+        className="absolute top-0 left-0 w-[600px] h-[600px] pointer-events-none z-0"
+        style={{
+          background: 'radial-gradient(ellipse at 0% 0%, rgba(60, 90, 180, 0.15) 0%, transparent 60%)',
+        }}
+      />
+      {/* Right blue accent */}
+      <div
+        className="absolute top-0 right-0 w-[600px] h-[600px] pointer-events-none z-0"
+        style={{
+          background: 'radial-gradient(ellipse at 100% 0%, rgba(50, 80, 170, 0.12) 0%, transparent 60%)',
+        }}
       />
 
       {/* Sidebar */}
-      <aside className="w-60 border-r border-white/[0.06] bg-black/40 backdrop-blur-md flex flex-col shrink-0 sticky top-0 h-screen z-10">
-        <div className="p-5 border-b border-white/[0.06]">
-          <Link href="/" className="text-lg font-bold text-white tracking-tight">
-            Proctara<span className="text-amber-400">.</span>
+      <aside className="w-60 border-r border-white/[0.06] bg-black/40 backdrop-blur-xl flex flex-col shrink-0 sticky top-0 h-screen z-10">
+        <div className="p-6">
+          <Link href="/" className="text-xl font-bold text-white tracking-tight block">
+            Proctara<span className="text-amber-500">.</span>
           </Link>
-          <p className="text-xs text-gray-500 mt-1 font-mono uppercase tracking-wider">{company?.name}</p>
+          <p className="text-[10px] tracking-[0.2em] text-slate-500 font-mono mt-1">NEXORA</p>
         </div>
 
-        <nav className="flex-1 p-3 space-y-0.5">
+        <nav className="flex-1 px-4 space-y-1 mt-2">
           {[
             { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
             { id: 'campaigns' as const, label: 'Campaigns', icon: FolderOpen },
-          ].map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveSection(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                activeSection === item.id
-                  ? 'bg-white/[0.07] text-white font-medium border border-white/[0.05]'
-                  : 'text-gray-400 hover:text-white hover:bg-white/[0.03]'
-              }`}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.label}
-            </button>
-          ))}
+          ].map(item => {
+            const isActive = activeSection === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 transition-all ${
+                  isActive
+                    ? 'bg-white/[0.08]/60 border border-white/[0.12] text-white font-medium rounded-xl'
+                    : 'text-slate-400 hover:text-slate-200 border border-transparent rounded-xl'
+                }`}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </button>
+            )
+          })}
         </nav>
 
-        <div className="p-3 border-t border-white/[0.06]">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center">
-              <User className="w-4 h-4 text-gray-400" />
+        <div className="p-4">
+          <div className="bg-white/[0.04]/60 border border-white/[0.08] rounded-xl p-3 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-white/[0.08] flex items-center justify-center">
+                  <User className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate leading-tight">{user?.name || user?.email || 'Nitin'}</p>
+                  <p className="text-[10px] text-slate-500 capitalize">{user?.role || 'Owner'}</p>
+                </div>
+              </div>
+              <button className="text-slate-400 hover:text-white transition-colors">
+                <Settings className="w-4 h-4" />
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-white truncate">{user?.name || user?.email}</p>
-              <p className="text-[10px] text-gray-500 capitalize">{user?.role}</p>
-            </div>
+            <button
+              onClick={() => { logout(); router.push('/login'); }}
+              className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-all pt-2 border-t border-white/[0.08]"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign out
+            </button>
           </div>
-          <button
-            onClick={() => { logout(); router.push('/login'); }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-500 hover:text-white hover:bg-white/[0.04] transition-all mt-1"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Sign out
-          </button>
         </div>
       </aside>
 
@@ -394,192 +449,249 @@ export default function DashboardPage() {
               {/* Header */}
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
-                  <p className="text-sm text-gray-400">Overview of your interview pipeline</p>
+                  <h1 className="text-2xl font-bold text-white">Overview</h1>
+                  <p className="text-sm text-slate-400 mt-1">Overview of your interview pipeline</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowCampaignModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black text-sm font-semibold hover:bg-gray-100 transition-all shadow-md"
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Campaign
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowCampaignModal(true)}
+                  className="bg-slate-100 hover:bg-white text-slate-950 font-semibold px-4 py-2 rounded-xl text-sm transition-all shadow-sm flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Campaign
+                </button>
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-4 gap-4 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 my-6">
                 {stats.map((stat, i) => (
                   <motion.div
                     key={stat.label}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5"
+                    className="bg-white/[0.02] backdrop-blur-md transition-all duration-300 hover:scale-[0.98] hover:bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`w-9 h-9 rounded-lg ${stat.bg} flex items-center justify-center`}>
-                        <stat.icon className={`w-4.5 h-4.5 ${stat.color}`} />
-                      </div>
+                    <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center mb-3`}>
+                      <stat.icon className={`w-4 h-4 ${stat.color}`} />
                     </div>
-                    <div className="text-2xl font-bold">{stat.value}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{stat.label}</div>
+                    <div className="flex items-baseline gap-2 mt-2">
+                      <span className="text-xl font-bold text-white">{stat.value}</span>
+                      <span className={`text-xs font-medium ${stat.color}`}>{stat.title}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">{stat.label}</div>
                   </motion.div>
                 ))}
               </div>
 
               {/* Active Campaigns list preview */}
-              <section className="mb-8">
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Active Campaigns</h2>
+              <section className="mt-8">
+                <h2 className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-4">Active Campaigns</h2>
                 {campaigns.length === 0 ? (
-                  <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-8 text-center">
-                    <FolderOpen className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm">No campaigns yet</p>
-                    <p className="text-gray-600 text-xs mt-1">Create a campaign to start interviewing candidates</p>
+                  <div className="bg-white/[0.02] backdrop-blur-md transition-all duration-300 hover:scale-[0.98] hover:bg-white/[0.03] border border-white/[0.08] rounded-2xl p-8 text-center">
+                    <FolderOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                    <p className="text-slate-500 text-sm">No campaigns yet</p>
+                    <p className="text-slate-600 text-xs mt-1">Create a campaign to start interviewing candidates</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    {campaigns.map((c) => (
-                      <Link
-                        key={c.id}
-                        href={`/campaigns/${c.id}`}
-                        className="bg-white/[0.02] border border-white/[0.06] hover:border-zinc-700 rounded-xl p-5 hover:bg-white/[0.03] transition-all flex flex-col justify-between cursor-pointer"
-                      >
-                        <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className={`text-[10px] uppercase px-2 py-0.5 rounded font-mono font-semibold ${
-                              c.status === 'active' 
-                                ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                                : 'bg-zinc-800 text-zinc-400 border border-zinc-700/50'
-                            }`}>
-                              {c.status}
-                            </span>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {campaigns.map((c) => {
+                      const isCompleted = c.status === 'completed' || c.status === 'inactive';
+                      
+                      return (
+                        <div
+                          key={c.id}
+                          onClick={() => router.push(`/campaigns/${c.id}`)}
+                          className="bg-white/[0.02] backdrop-blur-md transition-all duration-300 hover:scale-[0.98] hover:bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 hover:border-white/[0.12] transition-all flex flex-col justify-between cursor-pointer"
+                        >
+                          <div>
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                {isCompleted && (
+                                  <span className="inline-block text-[9px] uppercase px-2 py-0.5 rounded bg-white/[0.08] text-slate-400 border border-white/[0.12] font-semibold mb-2">
+                                    Completed
+                                  </span>
+                                )}
+                                <h3 className="text-base font-bold text-white leading-tight">{c.title}</h3>
+                                <p className="text-[11px] text-slate-400 mt-1">{c.jobRole?.title || 'Role'} • {c.template?.name || 'Interview'}</p>
+                              </div>
+                              <span className={`shrink-0 border text-[10px] px-2 py-1 rounded-md ${
+                                c.status === 'active' 
+                                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
+                                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              }`}>
+                                {c.status === 'active' ? 'Screening' : 'Review Complete'}
+                              </span>
+                            </div>
+                            
+                            <div className="mt-3">
+                              <div className="flex justify-between items-center mb-2">
+                                <p className="text-[11px] text-slate-300">
+                                  {isCompleted 
+                                    ? `Evaluated: ${c._count?.sessions ?? 0}`
+                                    : `Candidates Invited: ${c._count?.sessions ?? 0} (${Math.floor((c._count?.sessions ?? 0) * 0.7)} reviewed, ${Math.ceil((c._count?.sessions ?? 0) * 0.3)} pending)`
+                                  }
+                                </p>
+                                {!isCompleted && (c._count?.sessions ?? 0) > 0 && (
+                                  <div className="flex -space-x-2 overflow-hidden">
+                                    {[...Array(Math.min(3, c._count?.sessions ?? 0))].map((_, i) => (
+                                      <DynamicAvatar
+                                        key={i}
+                                        email={`candidate${i}@example.com`}
+                                        sizeClass="w-5 h-5"
+                                      />
+                                    ))}
+                                    {(c._count?.sessions ?? 0) > 3 && (
+                                      <div className="w-5 h-5 rounded-full border border-black bg-white/[0.08] flex items-center justify-center text-[9px] text-white font-medium z-10">
+                                        +{(c._count?.sessions ?? 0) - 3}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {!isCompleted && (
+                                <div className="h-1.5 w-full bg-white/[0.08] rounded-full overflow-hidden flex gap-1">
+                                  <div className="h-full bg-emerald-500" style={{ width: '70%' }}></div>
+                                  <div className="h-full bg-amber-500" style={{ width: '20%' }}></div>
+                                  <div className="h-full bg-slate-600" style={{ width: '10%' }}></div>
+                                </div>
+                              )}
+                              
+                              {isCompleted && (
+                                <div className="text-[11px] text-slate-400 space-y-1">
+                                  <p>Time saved analysis: 11 minutes, 11 minutes</p>
+                                  <p>Time saved efficiency: 20 minutes</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <h3 className="text-base font-bold text-white mb-1">{c.title}</h3>
-                          <p className="text-xs text-gray-400 font-medium">{c.jobRole?.title}</p>
-                          <p className="text-xs text-gray-500 mt-1">{c.template?.name}</p>
+                          
+                          <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono pt-3 mt-3 border-t border-white/[0.04]">
+                            <span>{c._count?.sessions ?? 0} candidate{(c._count?.sessions !== 1) ? 's' : ''}</span>
+                            <span>{c.template?.durationMin ?? 45} minutes</span>
+                            {!isCompleted && <span>20 minutes</span>}
+                          </div>
                         </div>
-                        <div className="border-t border-white/[0.04] pt-3.5 mt-4 flex items-center justify-between text-xs text-gray-500">
-                          <span>{c._count?.sessions ?? 0} candidates invited</span>
-                          <span className="font-mono">{c.template?.durationMin ?? 0} minutes</span>
-                        </div>
-                      </Link>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>
 
-              {/* Recent Interviews */}
-              <section>
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Recent Interviews</h2>
-                {recentInterviews.length === 0 ? (
-                  <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-8 text-center">
-                    <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm">No interviews conducted yet</p>
-                  </div>
-                ) : (
-                  <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-white/[0.06] text-gray-500 text-xs bg-white/[0.01]">
-                          <th className="text-left px-4 py-3 font-medium">Candidate</th>
-                          <th className="text-left px-4 py-3 font-medium">Role</th>
-                          <th className="text-left px-4 py-3 font-medium">Status</th>
-                          <th className="text-left px-4 py-3 font-medium">Score</th>
-                          <th className="text-left px-4 py-3 font-medium">Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recentInterviews.map((interview) => (
-                          <tr key={interview.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.01] transition-colors">
-                            <td className="px-4 py-3">
-                              <div className="font-semibold text-white">{interview.candidate.name || '—'}</div>
-                              <div className="text-xs text-gray-500">{interview.candidate.email}</div>
-                            </td>
-                            <td className="px-4 py-3 text-gray-400">{interview.jobRole.title}</td>
-                            <td className="px-4 py-3">
-                              <span className={`text-xs px-2 py-0.5 rounded-md capitalize ${
-                                interview.status === 'completed' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                                interview.status === 'in_progress' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                                'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                              }`}>{interview.status.replace('_', ' ')}</span>
-                            </td>
-                            <td className="px-4 py-3 font-mono">
-                              {interview.evaluation ? (
-                                <span className="text-white font-semibold">
-                                  {Number(interview.evaluation.overallScore).toFixed(0)}/100
-                                </span>
-                              ) : <span className="text-gray-600">—</span>}
-                            </td>
-                            <td className="px-4 py-3 text-gray-500 text-xs">
-                              {new Date(interview.createdAt).toLocaleDateString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
             </>
           )}
 
           {/* SECTION: CAMPAIGNS LIST */}
           {activeSection === 'campaigns' && (
             <div>
-              <div className="flex items-center justify-between mb-8">
+              {/* Content for Campaigns tab, styled similarly */}
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight">Campaigns</h1>
-                  <p className="text-sm text-gray-400">Manage your interview campaigns</p>
+                  <h1 className="text-2xl font-bold text-white">Campaigns</h1>
+                  <p className="text-sm text-slate-400 mt-1">Manage your interview campaigns</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowCampaignModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black text-sm font-semibold hover:bg-gray-100 transition-all shadow-md"
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Campaign
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowCampaignModal(true)}
+                  className="bg-slate-100 hover:bg-white text-slate-950 font-semibold px-4 py-2 rounded-xl text-sm transition-all shadow-sm flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Campaign
+                </button>
               </div>
 
               {campaigns.length === 0 ? (
-                <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-12 text-center">
-                  <FolderOpen className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                  <h3 className="text-lg text-gray-400 mb-1">No campaigns yet</h3>
-                  <p className="text-sm text-gray-500 mb-4">Create your first campaign to start inviting candidates</p>
+                <div className="bg-white/[0.02] backdrop-blur-md transition-all duration-300 hover:scale-[0.98] hover:bg-white/[0.03] border border-white/[0.08] rounded-2xl p-12 text-center">
+                  <FolderOpen className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <h3 className="text-lg text-slate-400 mb-1">No campaigns yet</h3>
+                  <p className="text-sm text-slate-500 mb-4">Create your first campaign to start inviting candidates</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  {campaigns.map(c => (
-                    <Link
-                      key={c.id}
-                      href={`/campaigns/${c.id}`}
-                      className="bg-white/[0.02] border border-white/[0.06] hover:border-zinc-700 rounded-xl p-5 hover:bg-white/[0.03] transition-all flex flex-col justify-between cursor-pointer"
-                    >
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className={`text-xs px-2.5 py-0.5 rounded-md capitalize font-semibold ${
-                            c.status === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                            'bg-gray-500/10 text-gray-500 border border-gray-500/20'
-                          }`}>{c.status}</span>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {campaigns.map((c) => {
+                    const isCompleted = c.status === 'completed' || c.status === 'inactive';
+                    
+                    return (
+                      <div
+                        key={c.id}
+                        onClick={() => router.push(`/campaigns/${c.id}`)}
+                        className="bg-white/[0.02] backdrop-blur-md transition-all duration-300 hover:scale-[0.98] hover:bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 hover:border-white/[0.12] transition-all flex flex-col justify-between cursor-pointer"
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              {isCompleted && (
+                                <span className="inline-block text-[9px] uppercase px-2 py-0.5 rounded bg-white/[0.08] text-slate-400 border border-white/[0.12] font-semibold mb-2">
+                                  Completed
+                                </span>
+                              )}
+                              <h3 className="text-base font-bold text-white leading-tight">{c.title}</h3>
+                              <p className="text-[11px] text-slate-400 mt-1">{c.jobRole?.title || 'Role'} • {c.template?.name || 'Interview'}</p>
+                            </div>
+                            <span className={`shrink-0 border text-[10px] px-2 py-1 rounded-md ${
+                              c.status === 'active' 
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
+                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            }`}>
+                              {c.status === 'active' ? 'Screening' : 'Review Complete'}
+                            </span>
+                          </div>
+                          
+                          <div className="mt-3">
+                            <div className="flex justify-between items-center mb-2">
+                              <p className="text-[11px] text-slate-300">
+                                {isCompleted 
+                                  ? `Evaluated: ${c._count?.sessions ?? 0}`
+                                  : `Candidates Invited: ${c._count?.sessions ?? 0} (${Math.floor((c._count?.sessions ?? 0) * 0.7)} reviewed, ${Math.ceil((c._count?.sessions ?? 0) * 0.3)} pending)`
+                                }
+                              </p>
+                              {!isCompleted && (c._count?.sessions ?? 0) > 0 && (
+                                <div className="flex -space-x-2 overflow-hidden">
+                                  {[...Array(Math.min(3, c._count?.sessions ?? 0))].map((_, i) => (
+                                    <img
+                                      key={i}
+                                      src={`https://unavatar.io/candidate${i}@example.com?fallback=https://api.dicebear.com/7.x/notionists/svg?seed=${i}`}
+                                      alt="candidate"
+                                      className="w-5 h-5 rounded-full border border-black"
+                                    />
+                                  ))}
+                                  {(c._count?.sessions ?? 0) > 3 && (
+                                    <div className="w-5 h-5 rounded-full border border-black bg-white/[0.08] flex items-center justify-center text-[9px] text-white font-medium z-10">
+                                      +{(c._count?.sessions ?? 0) - 3}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {!isCompleted && (
+                              <div className="h-1.5 w-full bg-white/[0.08] rounded-full overflow-hidden flex gap-1">
+                                <div className="h-full bg-emerald-500" style={{ width: '70%' }}></div>
+                                <div className="h-full bg-amber-500" style={{ width: '20%' }}></div>
+                                <div className="h-full bg-slate-600" style={{ width: '10%' }}></div>
+                              </div>
+                            )}
+                            
+                            {isCompleted && (
+                              <div className="text-[11px] text-slate-400 space-y-1">
+                                <p>Time saved analysis: 11 minutes, 11 minutes</p>
+                                <p>Time saved efficiency: 20 minutes</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <h3 className="text-base font-bold text-white mb-1">{c.title}</h3>
-                        <p className="text-xs text-gray-400">{c.jobRole?.title} • {c.template?.name}</p>
+                        
+                        <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono pt-3 mt-3 border-t border-white/[0.04]">
+                          <span>{c._count?.sessions ?? 0} candidate{(c._count?.sessions !== 1) ? 's' : ''}</span>
+                          <span>{c.template?.durationMin ?? 45} minutes</span>
+                          {!isCompleted && <span>20 minutes</span>}
+                        </div>
                       </div>
-                      <div className="border-t border-white/[0.04] pt-3.5 mt-4 flex items-center justify-between text-xs text-gray-500">
-                        <span>{c._count?.sessions ?? 0} candidates invited</span>
-                        <span className="font-mono">{c.template?.durationMin ?? 0} minutes</span>
-                      </div>
-                    </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           )}
-
-          {/* Candidates tab removed as candidates are now campaign-specific */}
 
         </div>
       </main>
@@ -587,71 +699,56 @@ export default function DashboardPage() {
       {/* MULTI-STEP NEW CAMPAIGN WIZARD MODAL */}
       <AnimatePresence>
         {showCampaignModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={resetCampaignWizard}
-              className="absolute inset-0 bg-black/85 backdrop-blur-sm"
-            />
-
-            {/* Modal Body */}
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            {/* Modal Container */}
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#09090b] border border-zinc-800/80 rounded-2xl w-full max-w-[440px] h-[560px] p-6 relative z-10 overflow-hidden shadow-2xl flex flex-col justify-between"
+              className="bg-white/[0.02] backdrop-blur-md transition-all duration-300 hover:scale-[0.98] hover:bg-white/[0.03] border border-white/[0.08] rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col"
             >
-              {/* Top ambient glow gradient */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[240px] h-[120px] pointer-events-none bg-gradient-to-b from-white/[0.03] to-transparent blur-xl rounded-full z-0" />
-
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-zinc-900 pb-4 mb-4 shrink-0 z-10">
+              {/* Header Section */}
+              <div className="flex items-start justify-between px-6 pt-6 pb-4">
                 <div>
-                  <h3 className="text-sm font-semibold flex items-center gap-1.5 text-zinc-100 font-sans">
-                    <Sparkles className="w-4 h-4 text-zinc-400" />
-                    Configure Campaign
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-amber-500" />
+                    Configure Campaign.
                   </h3>
-                  <p className="text-xs text-zinc-500 mt-0.5 font-sans">Automated screening round setup</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Automated screening round setup</p>
                 </div>
                 <button
                   type="button"
                   onClick={resetCampaignWizard}
-                  className="p-1.5 rounded-lg border border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/50 transition-all animate-none focus:outline-none"
+                  className="text-slate-400 hover:text-white hover:bg-white/[0.08] p-2 rounded-lg border border-white/[0.08] transition-colors focus:outline-none"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Stepper Timeline */}
-              <div className="flex items-center gap-2 mb-6 shrink-0 text-xs font-sans text-zinc-500 font-medium z-10 select-none">
-                {[
-                  { label: 'Details', step: 1 },
-                  { label: 'Configure', step: 2 },
-                ].map((s, idx) => (
-                  <span key={s.step} className="flex items-center gap-2">
-                    <span className={`transition-colors duration-200 ${
-                      campaignStep === s.step ? 'text-white font-semibold' : 
-                      campaignStep > s.step ? 'text-zinc-400 font-normal' : 'text-zinc-600 font-normal'
-                    }`}>
-                      {s.label}
-                    </span>
-                    {idx < 1 && <span className="text-zinc-800 font-normal">/</span>}
+              {/* Step Breadcrumb */}
+              <div className="px-6 mb-5">
+                <div className="flex items-center gap-2">
+                  <span className={`flex items-center gap-1.5 ${campaignStep === 1 ? 'text-sm font-semibold text-white' : 'text-sm font-normal text-slate-500'}`}>
+                    {campaignStep === 1 && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                    Details
                   </span>
-                ))}
+                  <span className="text-slate-600 text-sm">/</span>
+                  <span className={`flex items-center gap-1.5 ${campaignStep === 2 ? 'text-sm font-semibold text-white' : 'text-sm font-normal text-slate-500'}`}>
+                    {campaignStep === 2 && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                    Configure
+                  </span>
+                </div>
               </div>
 
               {/* Form errors */}
               {formError && (
-                <div className="mb-4 px-3.5 py-2 bg-red-950/20 border border-red-900/30 rounded-xl text-red-400 text-xs shrink-0 font-sans z-10">
+                <div className="mx-5 mb-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] shrink-0">
                   {formError}
                 </div>
               )}
 
               {/* Wizard Dynamic Step Views */}
-              <div className="flex-1 overflow-y-auto mb-6 pr-1 relative flex flex-col justify-center min-h-[340px] z-10">
+              <div className="px-6 flex-1 overflow-y-auto max-h-[65vh]">
                 <AnimatePresence mode="wait">
                   <motion.div
                      key={campaignStep}
@@ -659,143 +756,159 @@ export default function DashboardPage() {
                      animate={{ opacity: 1, x: 0 }}
                      exit={{ opacity: 0, x: -10 }}
                      transition={{ duration: 0.15 }}
-                     className="space-y-4 w-full"
+                     className="w-full"
                   >
                     {/* STEP 1: Basic details */}
                     {campaignStep === 1 && (
-                      <div className="space-y-4">
+                      <div className="space-y-5">
                         <div>
-                          <label className="block text-xs font-medium text-zinc-400 mb-1.5 font-sans">Job Role / Title</label>
+                          <label className="text-xs font-semibold text-slate-300 mb-1.5 block uppercase tracking-wider">Campaign Name</label>
                           <input
                             type="text"
                             required
                             value={roleTitle}
                             onChange={(e) => setRoleTitle(e.target.value)}
                             placeholder="e.g. Frontend Developer Intern"
-                            className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-700/50 rounded-xl px-3.5 py-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none transition-all font-sans"
+                            className="bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/20 transition-all w-full"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-zinc-400 mb-2 font-sans">Test Type</label>
-                          <div className="grid grid-cols-2 gap-4">
-                            {/* Coding Assessment - Disabled/Coming Soon */}
-                            <div className="p-4 border border-zinc-900 text-zinc-600 rounded-xl cursor-not-allowed opacity-40 select-none flex flex-col justify-between h-24 relative overflow-hidden bg-transparent">
-                              <div className="absolute top-1 right-2 bg-zinc-900 text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded text-zinc-500 font-mono font-semibold border border-zinc-850">
-                                Coming Soon
-                              </div>
-                              <FileCode className="w-5 h-5 text-zinc-700" />
-                              <div>
-                                <strong className="block text-xs font-semibold">Coding Assessment</strong>
-                                <span className="text-[10px] text-zinc-650 font-normal block mt-0.5">Algorithmic coding tests</span>
-                              </div>
+                          <label className="text-xs font-semibold text-slate-300 mb-1.5 block uppercase tracking-wider">Test Type</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 my-2">
+                            {/* Coding Assessment */}
+                            <div 
+                              onClick={() => setTestType('coding')}
+                              className={`border rounded-xl p-4 cursor-pointer transition-all ${
+                                testType === 'coding' 
+                                  ? 'bg-[#1c222b] border-amber-500/80' 
+                                  : 'bg-white/[0.04] backdrop-blur-sm border-white/[0.08] hover:border-white/[0.2]'
+                              }`}
+                            >
+                              <FileCode className={`w-5 h-5 mb-2 ${testType === 'coding' ? 'text-amber-500' : 'text-slate-500'}`} />
+                              <strong className="block text-sm font-semibold text-white">Live Coding Interview</strong>
+                              <span className="text-xs text-slate-500 block mt-0.5">Google Docs-style collaborative editor</span>
                             </div>
 
                             {/* AI Video Interview */}
-                            <div className="p-4 border rounded-xl cursor-default bg-white/[0.04] border-zinc-200 text-white font-medium shadow-sm flex flex-col justify-between h-24 relative overflow-hidden">
-                              <Sparkles className="w-5 h-5 text-zinc-200" />
-                              <div>
-                                <strong className="block text-xs font-semibold">AI Video Interview</strong>
-                                <span className="text-[10px] text-zinc-400 font-normal block mt-0.5">Adaptive video interview</span>
+                            <div 
+                              onClick={() => setTestType('video')}
+                              className={`border rounded-xl p-4 cursor-pointer transition-all ${
+                                testType === 'video' 
+                                  ? 'bg-[#1c222b] border-amber-500/80' 
+                                  : 'bg-white/[0.04] backdrop-blur-sm border-white/[0.08] hover:border-white/[0.2]'
+                              }`}
+                            >
+                              <Sparkles className={`w-5 h-5 mb-2 ${testType === 'video' ? 'text-amber-500' : 'text-slate-500'}`} />
+                              <strong className="block text-sm font-semibold text-white">AI Video Interview</strong>
+                              
+                              <div className="flex -space-x-1.5 overflow-hidden mt-3">
+                                <DynamicAvatar email="alex.j@example.com" sizeClass="w-7 h-7" borderClass="border-2 border-[#1c222b]" />
+                                <DynamicAvatar email="sarah.w@example.com" sizeClass="w-7 h-7" borderClass="border-2 border-[#1c222b]" />
+                                <DynamicAvatar email="michael.k@example.com" sizeClass="w-7 h-7" borderClass="border-2 border-[#1c222b]" />
+                                <div className="w-7 h-7 rounded-full border-2 border-[#1c222b] bg-white/[0.08] flex items-center justify-center text-[9px] text-white font-medium z-10">
+                                  +4
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-zinc-405 mb-1.5 font-sans">Job Description (JD)</label>
+                          <label className="text-xs font-semibold text-slate-300 mb-1.5 block uppercase tracking-wider">Job Description (JD)</label>
                           <textarea
                             required
-                            rows={3}
                             value={jobDescription}
                             onChange={(e) => setJobDescription(e.target.value)}
-                            placeholder="Paste the Job Description here. The AI will generate customized interview questions matching these requirements..."
-                            className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-700/50 rounded-xl px-3.5 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none transition-all font-sans resize-none"
+                            placeholder="Paste the Job Description here..."
+                            className="bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/20 min-h-[100px] resize-y w-full"
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4 mt-1">
                           <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1.5 font-sans">Duration (Minutes)</label>
-                            <input
-                              type="number"
-                              required
-                              min={10}
-                              max={120}
-                              value={durationMin}
-                              onChange={(e) => setDurationMin(Number(e.target.value))}
-                              className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-700/50 rounded-xl px-3.5 py-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none transition-all font-sans"
-                            />
+                            <label className="text-xs font-semibold text-slate-300 mb-1.5 block uppercase tracking-wider">Duration (Minutes)</label>
+                            <div className="relative">
+                              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                              <input
+                                type="number"
+                                required
+                                min={10}
+                                max={120}
+                                value={durationMin}
+                                onChange={(e) => setDurationMin(Number(e.target.value))}
+                                className="bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/20 transition-all w-full"
+                              />
+                            </div>
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1.5 font-sans">Expiry Date</label>
-                            <input
-                              type="date"
-                              value={expiresAt}
-                              onChange={(e) => setExpiresAt(e.target.value)}
-                              className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-700/50 rounded-xl px-3.5 py-2.5 text-xs text-zinc-350 focus:outline-none transition-all font-sans cursor-pointer"
-                            />
+                            <label className="text-xs font-semibold text-slate-300 mb-1.5 block uppercase tracking-wider">Expiry Date</label>
+                            <div className="relative">
+                              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                              <input
+                                type="date"
+                                value={expiresAt}
+                                onChange={(e) => setExpiresAt(e.target.value)}
+                                className="bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/20 transition-all w-full cursor-pointer [color-scheme:dark]"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* STEP 2: Configuration - AI Video Interview */}
+                    {/* STEP 2: Configuration - AI Video Interview or Live Coding */}
                     {campaignStep === 2 && (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="col-span-3">
-                            <label className="block text-xs font-medium text-zinc-400 mb-2 font-sans">AI Tone</label>
-                            <div className="grid grid-cols-3 gap-2 text-xs">
-                              {['professional', 'friendly', 'strict'].map((t) => (
-                                <button
-                                  key={t}
-                                  type="button"
-                                  onClick={() => setAiTone(t as any)}
-                                  className={`px-3 py-1.5 border rounded-full capitalize transition-all ${
-                                    aiTone === t
-                                      ? 'bg-white/[0.06] border-zinc-200 text-white font-medium shadow-sm'
-                                      : 'bg-transparent border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
-                                  }`}
-                                >
-                                  {t}
-                                </button>
-                              ))}
-                            </div>
+
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-300 mb-1 block uppercase tracking-wider">AI Tone</label>
+                          <div className="flex gap-2 my-2">
+                            {['professional', 'friendly', 'strict'].map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setAiTone(t as any)}
+                                className={
+                                  aiTone === t
+                                    ? 'bg-white text-slate-950 font-semibold px-4 py-1.5 rounded-xl text-xs border border-white shadow-sm cursor-pointer transition-all capitalize'
+                                    : 'bg-white/[0.04] backdrop-blur-sm text-slate-400 hover:text-white border border-white/[0.08] px-4 py-1.5 rounded-xl text-xs cursor-pointer hover:border-white/[0.12] transition-all capitalize'
+                                }
+                              >
+                                {t}
+                              </button>
+                            ))}
                           </div>
-
-
-
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-zinc-400 mb-1.5 font-sans">Groq API Key</label>
+                          <label className="text-[10px] font-semibold text-slate-300 mb-1 block uppercase tracking-wider">Groq API Key</label>
                           {hasStoredGroqApiKey ? (
-                            <div className="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-450 font-mono">
+                            <div className="flex items-center justify-between bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-slate-400 font-mono">
                               <span>•••••••••••• (Saved globally)</span>
                               <button
                                 type="button"
                                 onClick={() => setHasStoredGroqApiKey(false)}
-                                className="text-[10px] text-zinc-500 hover:text-zinc-350 font-semibold underline focus:outline-none"
+                                className="text-[10px] text-slate-400 hover:text-white font-semibold underline focus:outline-none"
                               >
                                 Change
                               </button>
                             </div>
                           ) : (
-                            <div className="space-y-2">
+                            <div>
                               <input
                                 type="password"
                                 value={groqApiKey}
                                 onChange={(e) => setGroqApiKey(e.target.value)}
                                 placeholder="gsk_..."
-                                className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-700/50 rounded-xl px-3.5 py-2.5 text-xs text-zinc-200 placeholder-zinc-505 font-mono focus:outline-none transition-all"
+                                className="bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-xl font-mono px-3.5 py-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/20 transition-all w-full"
                               />
-                              <label className="flex items-center gap-2 cursor-pointer text-[10px] text-zinc-450 font-sans font-medium select-none pt-1">
+                              <label className="flex items-center gap-2 mt-3 cursor-pointer text-[11px] text-slate-400 hover:text-slate-300 select-none">
                                 <input
                                   type="checkbox"
                                   checked={saveAsGlobalDefault}
                                   onChange={(e) => setSaveAsGlobalDefault(e.target.checked)}
-                                  className="rounded border-zinc-805 bg-zinc-955 text-white focus:ring-0 w-3.5 h-3.5"
+                                  className="w-3.5 h-3.5 rounded border border-white/[0.12] bg-white/[0.04] backdrop-blur-sm text-amber-500 focus:ring-amber-500/30"
                                 />
                                 Save as global profile default
                               </label>
@@ -805,64 +918,63 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* STEP 3: Candidate list preview */}
+                    {/* STEP 3 & 4 (Unchanged logic, just minimal style tweaks if any) */}
                     {campaignStep === 3 && (
-                      <div className="space-y-3">
-                        <p className="text-xs text-zinc-500 text-center leading-relaxed font-sans">
+                      <div className="space-y-4">
+                        <p className="text-sm text-slate-400 text-center leading-relaxed">
                           Proctara will automatically invite all candidates uploaded via CSV.
                         </p>
-                        <div className="border border-zinc-800/80 rounded-xl overflow-hidden bg-zinc-950/20 max-h-48 overflow-y-auto divide-y divide-zinc-900">
+                        <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-white/[0.04] backdrop-blur-sm max-h-48 overflow-y-auto divide-y divide-slate-800">
                           {candidatesList.length === 0 ? (
-                            <div className="text-xs text-zinc-500 py-8 text-center font-sans">
+                            <div className="text-sm text-slate-500 py-8 text-center">
                               No candidates found. Please upload a candidates CSV first.
                             </div>
                           ) : (
                             candidatesList.map((c, idx) => (
-                              <div key={c.id || idx} className="flex items-center justify-between px-4 py-2.5 text-xs font-sans">
+                              <div key={c.id || idx} className="flex items-center justify-between px-4 py-3 text-sm">
                                 <div className="min-w-0 flex-1 pr-2">
-                                  <div className="font-semibold text-zinc-200 truncate">{c.name}</div>
-                                  <div className="text-[10px] text-zinc-500 truncate">{c.email}</div>
+                                  <div className="font-semibold text-white truncate">{c.name}</div>
+                                  <div className="text-xs text-slate-400 truncate">{c.email}</div>
                                 </div>
-                                <span className="text-[9px] font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full uppercase shrink-0">
+                                <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-1 rounded-md uppercase shrink-0">
                                   Pending Invite
                                 </span>
                               </div>
                             ))
                           )}
                         </div>
-                        <div className="text-center text-[10px] text-zinc-500">
-                          Total: <strong className="text-zinc-300">{candidatesList.length} candidates</strong> will receive automated invites.
+                        <div className="text-center text-xs text-slate-500">
+                          Total: <strong className="text-white">{candidatesList.length} candidates</strong> will receive automated invites.
                         </div>
                       </div>
                     )}
 
-                    {/* STEP 4: Success & Multi Link Copy */}
                     {campaignStep === 4 && (
-                      <div className="space-y-4">
-                        <div className="text-center py-1">
-                          <div className="w-11 h-11 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-2">
-                            <Check className="w-5.5 h-5.5 text-green-400" />
+                      <div className="space-y-5 py-4">
+                        <div className="text-center">
+                          <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                            <Check className="w-7 h-7 text-emerald-500" />
                           </div>
-                          <h4 className="text-sm font-semibold text-zinc-150 font-sans">Campaign Created Successfully!</h4>
-                          <p className="text-xs text-zinc-505 mt-0.5 font-sans">Unique invite URLs generated for candidates.</p>
+                          <h4 className="text-lg font-bold text-white">Campaign Created Successfully!</h4>
+                          <p className="text-sm text-slate-400 mt-1">Unique invite URLs generated for candidates.</p>
                         </div>
 
-                        <div className="border border-zinc-800/85 rounded-xl bg-zinc-950/40 divide-y divide-zinc-900 max-h-44 overflow-y-auto pr-1">
+                        <div className="border border-white/[0.08] rounded-xl bg-white/[0.04] backdrop-blur-sm divide-y divide-slate-800 max-h-56 overflow-y-auto">
                           {invites.map((inv, idx) => {
                             const isCopied = copiedLinkIndex === idx;
                             return (
-                              <div key={idx} className="p-3 flex items-center justify-between gap-3 text-xs">
+                              <div key={idx} className="p-4 flex items-center justify-between gap-3 text-sm">
                                 <div className="min-w-0 flex-1">
-                                  <div className="font-semibold text-zinc-200 truncate">{inv.name || 'Candidate'}</div>
-                                  <div className="text-[10px] text-zinc-500 truncate">{inv.email}</div>
-                                  <div className="text-[9px] text-zinc-650 truncate mt-0.5 font-mono select-all">{inv.inviteUrl}</div>
+                                  <div className="font-semibold text-white truncate">{inv.name || 'Candidate'}</div>
+                                  <div className="text-xs text-slate-400 truncate">{inv.email}</div>
+                                  <div className="text-[10px] text-slate-500 truncate mt-1 font-mono select-all bg-white/[0.04] px-2 py-1 rounded border border-white/[0.08] inline-block">{inv.inviteUrl}</div>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => handleCopyLinkIndex(inv.inviteUrl, idx)}
-                                  className="flex items-center gap-1.5 text-[10px] text-black bg-white hover:bg-zinc-100 font-semibold px-2.5 py-1.5 rounded-lg shrink-0 transition-all shadow-md focus:outline-none"
+                                  className="flex items-center gap-2 text-xs bg-slate-100 hover:bg-white text-slate-950 font-semibold px-3 py-2 rounded-lg shrink-0 transition-all shadow-sm focus:outline-none"
                                 >
-                                  {isCopied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                  {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                                   {isCopied ? 'Copied' : 'Copy'}
                                 </button>
                               </div>
@@ -875,13 +987,13 @@ export default function DashboardPage() {
                 </AnimatePresence>
               </div>
 
-              {/* Modal Footer Controls */}
-              <div className="flex justify-end gap-3 border-t border-zinc-900 pt-4 shrink-0 text-xs font-semibold font-sans z-10">
+              {/* ACTION FOOTER BAR */}
+              <div className="border-t border-white/[0.08] px-6 py-4 mt-6 flex items-center justify-end gap-3 bg-transparent">
                 {campaignStep === 1 && (
                   <button
                     type="button"
                     onClick={resetCampaignWizard}
-                    className="px-4 py-2.5 rounded-xl border border-zinc-800 bg-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 transition-all font-medium text-xs focus:outline-none"
+                    className="bg-transparent hover:bg-white/[0.08]/50 text-slate-300 hover:text-white border border-white/[0.12] px-6 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none"
                   >
                     Cancel
                   </button>
@@ -892,7 +1004,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => setCampaignStep(1)}
                     disabled={formLoading}
-                    className="px-4 py-2.5 rounded-xl border border-zinc-800 bg-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30 transition-all font-medium text-xs focus:outline-none disabled:opacity-40"
+                    className="bg-transparent hover:bg-white/[0.08]/50 text-slate-300 hover:text-white border border-white/[0.12] px-6 py-2.5 rounded-xl text-sm font-medium transition-all focus:outline-none disabled:opacity-40"
                   >
                     Back
                   </button>
@@ -903,7 +1015,7 @@ export default function DashboardPage() {
                     type="button"
                     disabled={!roleTitle.trim() || !jobDescription.trim()}
                     onClick={() => setCampaignStep(2)}
-                    className="px-5 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-100 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs focus:outline-none shadow-md"
+                    className="bg-slate-200 hover:bg-white text-slate-900 font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:scale-[1.01] flex items-center gap-2 disabled:opacity-40 disabled:hover:scale-100 focus:outline-none"
                   >
                     Continue
                   </button>
@@ -912,9 +1024,10 @@ export default function DashboardPage() {
                     type="button"
                     onClick={handleCreateCampaign}
                     disabled={formLoading || (!hasStoredGroqApiKey && !groqApiKey.trim())}
-                    className="px-5 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-100 font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-all text-xs focus:outline-none shadow-md"
+                    className="bg-slate-200 hover:bg-white text-slate-900 font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm hover:scale-[1.01] flex items-center gap-2 disabled:opacity-40 disabled:hover:scale-100 focus:outline-none"
                   >
-                    {formLoading ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : 'Create Campaign'}
+                    {formLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Create Campaign
                   </button>
                 )}
               </div>

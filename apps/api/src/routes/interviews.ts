@@ -172,7 +172,7 @@ router.get('/join/:token', authenticateCandidate, async (req: AuthRequest, res: 
     include: {
       jobRole: { select: { title: true, skills: true, level: true } },
       template: { select: { name: true, durationMin: true, config: true } },
-      campaign: { select: { durationMin: true } },
+      campaign: { select: { durationMin: true, type: true } },
       company: { select: { name: true, logoUrl: true } },
       candidate: { select: { id: true, email: true, name: true } },
     },

@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // Proctara Express Server
 // Main entry point for the API
 // ============================================
@@ -10,6 +10,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
+import { WebSocketServer } from 'ws';
+import { Hocuspocus } from '@hocuspocus/server';
 
 import authRoutes from './routes/auth';
 import companyRoutes from './routes/companies';
@@ -19,7 +21,7 @@ import campaignRoutes from './routes/campaigns';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import logger from './lib/logger';
 import prisma from './lib/prisma';
-import { generateInitialQuestion, generateFollowUpQuestion, evaluateSessionAndSave } from './services/interviewBot';
+import { generateInitialQuestion, generateFollowUpQuestion, generateLiveCodingResponse, evaluateSessionAndSave } from './services/interviewBot';
 import { transcribeAudioBuffer } from './services/groqClient';
 import { evaluateAnswer } from './services/aiEvaluation';
 
@@ -101,7 +103,7 @@ io.on('connection', (socket) => {
           campaign: true,
           company: true,
           jobRole: true,
-          template: true,
+          template: { include: { questions: { include: { question: true }, orderBy: { orderNum: 'asc' } } } },
           responses: { orderBy: { sequenceNum: 'asc' } },
         },
       });
@@ -147,19 +149,25 @@ io.on('connection', (socket) => {
         if (unansweredResp) {
           let spokenText = unansweredResp.questionText;
           let phase = 'INTERVIEW';
+          let pasteContent = undefined;
+          
           try {
             const parsed = JSON.parse(unansweredResp.questionText);
             if (parsed.speechOutput) {
               spokenText = parsed.speechOutput;
               phase = parsed.currentPhase || 'INTERVIEW';
+              if (parsed.shouldPasteQuestion && session.campaign?.type === 'LIVE_CODING') {
+                pasteContent = parsed.generatedProblemStatement || 'No question content available.';
+              }
             }
           } catch (e) {}
 
           socket.emit('interview:question', {
             questionText: spokenText,
             currentPhase: phase,
-            type: 'behavioral',
+            type: 'technical',
             sequenceNum: unansweredResp.sequenceNum,
+            pasteContent,
           });
           return;
         }
@@ -183,7 +191,12 @@ io.on('connection', (socket) => {
 
           const nextSequenceNum = session.responses.length + 1;
           logger.info({ sessionId, nextSequenceNum }, 'Generating follow-up question on reconnect');
-          const nextQuestion = await generateFollowUpQuestion(jd, resume, session.jobRole.title, 'professional', history, groqApiKey);
+          let nextQuestion = '';
+          if (session.campaign?.type === 'LIVE_CODING') {
+            nextQuestion = await generateLiveCodingResponse(jd, resume, history, groqApiKey);
+          } else {
+            nextQuestion = await generateFollowUpQuestion(jd, resume, session.jobRole.title, 'professional', history, groqApiKey);
+          }
 
           await prisma.response.create({
             data: {
@@ -194,21 +207,27 @@ io.on('connection', (socket) => {
           });
 
           let spokenText = nextQuestion;
-          let phase = 'INTERVIEW';
-          try {
-            const parsed = JSON.parse(nextQuestion);
-            if (parsed.speechOutput) {
-              spokenText = parsed.speechOutput;
-              phase = parsed.currentPhase || 'INTERVIEW';
-            }
-          } catch (e) {}
+        let phase = 'INTERVIEW';
+        let pasteContent = undefined;
 
-          socket.emit('interview:question', {
-            questionText: spokenText,
-            currentPhase: phase,
-            type: 'behavioral',
-            sequenceNum: nextSequenceNum,
-          });
+        try {
+          const parsed = JSON.parse(nextQuestion);
+          if (parsed.speechOutput) {
+            spokenText = parsed.speechOutput;
+            phase = parsed.currentPhase || 'INTERVIEW';
+            if (parsed.shouldPasteQuestion && session.campaign?.type === 'LIVE_CODING') {
+              pasteContent = parsed.generatedProblemStatement || 'No question content available.';
+            }
+          }
+        } catch (e) {}
+
+        socket.emit('interview:question', {
+          questionText: spokenText,
+          currentPhase: phase,
+          type: 'technical',
+          sequenceNum: nextSequenceNum,
+          pasteContent,
+        });
           return;
         } else {
           // Already completed
@@ -229,7 +248,12 @@ io.on('connection', (socket) => {
 
       logger.info({ sessionId }, 'Generating Phase 2 launch from resume and JD');
 
-      const firstQuestion = await generateInitialQuestion(jd, resume, session.jobRole.title, 'professional', groqApiKey, transcript || 'yes');
+      let firstQuestion = '';
+      if (session.campaign?.type === 'LIVE_CODING') {
+        firstQuestion = await generateLiveCodingResponse(jd, resume, [], groqApiKey);
+      } else {
+        firstQuestion = await generateInitialQuestion(jd, resume, session.jobRole.title, 'professional', groqApiKey, transcript || 'yes');
+      }
 
       // Save question to DB
       await prisma.response.create({
@@ -242,11 +266,16 @@ io.on('connection', (socket) => {
 
       let spokenText = firstQuestion;
       let phase = 'LAUNCH';
+      let pasteContent = undefined;
+      
       try {
         const parsed = JSON.parse(firstQuestion);
         if (parsed.speechOutput) {
           spokenText = parsed.speechOutput;
           phase = parsed.currentPhase || 'LAUNCH';
+          if (parsed.shouldPasteQuestion && session.campaign?.type === 'LIVE_CODING') {
+            pasteContent = parsed.generatedProblemStatement || 'No question content available.';
+          }
         }
       } catch (e) {}
 
@@ -255,6 +284,7 @@ io.on('connection', (socket) => {
         currentPhase: phase,
         type: 'behavioral',
         sequenceNum: 1,
+        pasteContent,
       });
 
     } catch (err) {
@@ -274,7 +304,7 @@ io.on('connection', (socket) => {
           campaign: true,
           company: true,
           jobRole: true,
-          template: true,
+          template: { include: { questions: { include: { question: true }, orderBy: { orderNum: 'asc' } } } },
           responses: { orderBy: { sequenceNum: 'asc' } },
         },
       });
@@ -381,6 +411,22 @@ io.on('connection', (socket) => {
         // Fast Loop: Generate next question
         const resume = (session.candidate.metadata as any)?.resumeText || 'No resume available';
 
+        const isSilent = answerText === '[System: Timeout - Candidate remained silent]';
+
+        // For LIVE_CODING: if the candidate was silent, just revert the answer and wait
+        if (session.campaign?.type === 'LIVE_CODING' && isSilent) {
+          logger.info({ sessionId }, 'LIVE_CODING: Candidate was silent, reverting answer and waiting');
+          await prisma.response.update({
+            where: { id: activeResponse.id },
+            data: { answerText: null },
+          });
+          socket.emit('interview:feedback', {
+            received: true,
+            message: 'Take your time. Explain your approach whenever you are ready.',
+          });
+          return;
+        }
+
         if (session.responses.length === 1 && answerText === "[USER TIMEOUT / SILENT]") {
           logger.info({ sessionId }, 'Failsafe: Caught handshake timeout, bypassing Groq');
           await prisma.response.update({
@@ -403,7 +449,20 @@ io.on('connection', (socket) => {
         }));
 
         logger.info({ sessionId, nextSequenceNum }, 'Generating follow-up question');
-        const nextQuestionPromise = generateFollowUpQuestion(jd, resume, session.jobRole.title, 'professional', history, groqApiKey);
+        
+        let currentCode = '';
+        const hocusDoc = hocuspocusServer.documents.get(sessionId);
+        if (hocusDoc) {
+           const fragment = hocusDoc.getXmlFragment('default');
+           currentCode = fragment.toString();
+        }
+
+        let nextQuestionPromise: Promise<string>;
+        if (session.campaign?.type === 'LIVE_CODING') {
+          nextQuestionPromise = generateLiveCodingResponse(jd, resume, history, groqApiKey, currentCode);
+        } else {
+          nextQuestionPromise = generateFollowUpQuestion(jd, resume, session.jobRole.title, 'professional', history, groqApiKey, currentCode);
+        }
 
         // Background Loop: Score the previous answer asynchronously
         if (activeResponse.sequenceNum > 1 && answerText.trim() !== '' && answerText !== "[System: Timeout - Candidate remained silent]") {
@@ -454,11 +513,16 @@ io.on('connection', (socket) => {
 
         let spokenText = nextQuestion;
         let phase = 'INTERVIEW';
+        let pasteContent: string | undefined = undefined;
         try {
           const parsed = JSON.parse(nextQuestion);
           if (parsed.speechOutput) {
             spokenText = parsed.speechOutput;
             phase = parsed.currentPhase || 'INTERVIEW';
+            // Only paste a question if the LLM explicitly says to AND we're in LIVE_CODING
+            if (parsed.shouldPasteQuestion && session.campaign?.type === 'LIVE_CODING') {
+              pasteContent = parsed.generatedProblemStatement || undefined;
+            }
           }
         } catch (e) {}
 
@@ -472,6 +536,7 @@ io.on('connection', (socket) => {
           currentPhase: phase,
           type: 'behavioral',
           sequenceNum: nextSequenceNum,
+          pasteContent,
         });
       }
     } catch (err) {
@@ -605,10 +670,31 @@ io.on('connection', (socket) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// ---- WebSocket Handlers (Yjs) ----
+
+// Hocuspocus manages collaborative document state. It is attached to the
+// HTTP upgrade handler below rather than binding its own port.
+// The port option exists only on the Server subclass; the base Hocuspocus
+// class accepts Partial<Configuration> which does not include it.
+const hocuspocusServer = new Hocuspocus({});
+
+const wss = new WebSocketServer({ noServer: true });
+
+httpServer.on('upgrade', (request, socket, head) => {
+  if (request.url?.startsWith('/yjs')) {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      // The hocuspocus handleConnection signature expects the fetch API Request
+      // type; at runtime Node's IncomingMessage satisfies all properties read.
+      hocuspocusServer.handleConnection(ws, request as unknown as Request);
+    });
+  }
+  // Let Socket.io handle other upgrades automatically
+});
+
 // ---- Start Server ----
 
 httpServer.listen(PORT, () => {
-  logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, '🚀 Proctara API server running');
+  logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'ðŸš€ Proctara API server running');
 });
 
-export { app, httpServer, io };
+export { app, httpServer, io, hocuspocusServer };

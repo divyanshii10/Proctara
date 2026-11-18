@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { interviewApi } from '@/lib/api';
+import LiveInterviewView from '@/components/interview/LiveInterviewView';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -33,7 +34,7 @@ interface InterviewInfo {
   company: { name: string };
   jobRole: { title: string; skills: string[] };
   template: { name: string; durationMin: number };
-  campaign?: { durationMin?: number };
+  campaign?: { durationMin?: number; type?: string };
   status: string;
   candidate?: { id: string; name: string; email: string };
 }
@@ -437,7 +438,7 @@ export default function InterviewPage() {
 
   // WebSocket connection & routing events
   useEffect(() => {
-    if (!info || !lobbyConfirmed) return;
+    if (!info || !lobbyConfirmed || info.campaign?.type === 'LIVE_CODING') return;
 
     const socket = io(API_URL, { transports: ['websocket', 'polling'] });
     socketRef.current = socket;
@@ -937,7 +938,35 @@ export default function InterviewPage() {
         </motion.div>
       </div>
     );
-  }  // Fetch the latest question display
+  }
+
+  if (info?.campaign?.type === 'LIVE_CODING' && hasStarted && !ended) {
+    return (
+      <div className="relative w-full h-screen bg-black overflow-hidden">
+         <LiveInterviewView token={params.token as string} sessionId={info.sessionId} onEnd={() => {
+             setEnded(true);
+             if (videoRef.current && videoRef.current.srcObject) {
+               (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+             }
+         }} />
+         {/* Floating Picture-in-Picture Proctor Feed for Live Coding */}
+         <div className="absolute top-8 right-8 z-50 w-40 aspect-video bg-zinc-950 border border-zinc-900 rounded-xl overflow-hidden shadow-2xl pointer-events-none">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+            <div className="absolute top-2.5 left-2.5 z-30 flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md border border-zinc-800">
+              <div className="w-1 h-1 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[8px] font-bold text-red-500 uppercase tracking-wider">REC</span>
+            </div>
+         </div>
+      </div>
+    );
+  }
+  // Fetch the latest question display
   const currentQuestion = messages.filter(m => m.role === 'ai' && m.type === 'question').slice(-1)[0]?.content || "Connecting with the AI interviewer...";
 
   // Calculate timer values
@@ -1001,6 +1030,10 @@ export default function InterviewPage() {
             <button
               onClick={() => {
                 setLobbyConfirmed(true);
+                // For LIVE_CODING campaigns, immediately show the doc editor
+                if (info?.campaign?.type === 'LIVE_CODING') {
+                  setHasStarted(true);
+                }
                 if (document.documentElement.requestFullscreen) {
                   document.documentElement.requestFullscreen().catch(e => console.error(e));
                 }
@@ -1033,6 +1066,33 @@ export default function InterviewPage() {
             Enter Fullscreen & Start
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (info?.campaign?.type === 'LIVE_CODING' && hasStarted && !ended) {
+    return (
+      <div className="relative w-full h-screen bg-black overflow-hidden">
+         <LiveInterviewView token={token} sessionId={info.sessionId} onEnd={() => {
+             setEnded(true);
+             if (videoRef.current && videoRef.current.srcObject) {
+               (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+             }
+         }} />
+         {/* Floating Picture-in-Picture Proctor Feed for Live Coding */}
+         <div className="absolute top-8 right-8 z-50 w-40 aspect-video bg-zinc-950 border border-zinc-900 rounded-xl overflow-hidden shadow-2xl pointer-events-none">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+            <div className="absolute top-2.5 left-2.5 z-30 flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md border border-zinc-800">
+              <div className="w-1 h-1 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[8px] font-bold text-red-500 uppercase tracking-wider">REC</span>
+            </div>
+         </div>
       </div>
     );
   }
