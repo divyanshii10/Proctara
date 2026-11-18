@@ -13,7 +13,7 @@ RUN npm ci
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN cd apps/api && npx prisma generate && npx tsc
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma && cd apps/api && npx tsc
 
 # Production image: copy compiled output and runtime dependencies.
 FROM node:20-alpine AS runner
