@@ -117,6 +117,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       });
 
       // Create Campaign
+      const campaignType = data.testType === 'coding' ? 'LIVE_CODING' : 'AI_INTERVIEW';
+
       const campaign = await prisma.campaign.create({
         data: {
           companyId,
@@ -124,10 +126,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
           description: data.jobDescription,
           jobRoleId: jobRole.id,
           templateId: template.id,
+          type: campaignType,
           durationMin: data.durationMin,
           expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
         },
       });
+
+
 
       logger.info({ campaignId: campaign.id, companyId }, 'Campaign created');
 

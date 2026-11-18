@@ -83,7 +83,8 @@ export async function generateFollowUpQuestion(
   roleTitle: string,
   tone: string = 'professional',
   history: Array<{ questionText: string; answerText: string }>,
-  groqApiKey?: string
+  groqApiKey?: string,
+  currentCode: string = ''
 ): Promise<string> {
   const client = getAiClient(groqApiKey);
   const model = getModel(groqApiKey);
@@ -93,14 +94,14 @@ export async function generateFollowUpQuestion(
 You must strictly follow this conversational state machine. Do not skip phases.
 
 PHASE 2: DYNAMIC INTERVIEW (Active Q&A)
-- You must adapt dynamically to the candidate's input.
-- If the candidate gives a complete answer to your previous question, briefly acknowledge it and ask a NEW technical follow-up question.
+- You must adapt dynamically to the candidate's spoken input AND their live code.
+- If they are writing code, evaluate their progress. If they are on the right track, briefly encourage them. If they are stuck or going down the wrong path, give a subtle hint (like a human interviewer nudging them).
+- If the candidate gives a complete answer to your previous question, briefly acknowledge it and ask a NEW technical follow-up question or present the next problem.
 - If the candidate asks a clarifying question, answer it concisely. Do NOT move on to a new topic yet.
-- If the candidate asks for time to think or a break (e.g., 'can I take 5 minutes'), reply naturally like a human: 'Take your time, let me know when you are ready.' Do NOT ask a new question in this case.
 - CRITICAL: Act like a fast-paced, concise human interviewer. Keep your entire response under 2-3 sentences. Avoid repeating their answers.
 
 PHASE 3: SILENCE TIMEOUT
-- If the user payload is exactly '[System: Timeout - Candidate remained silent]', pivot to a fundamental question: 'Let's try a different direction. Tell me about...'
+- If the user payload is exactly '[System: Timeout - Candidate remained silent]', look at their code. If they are actively writing code (the code changed significantly), do NOT interrupt them. Just say "Looks good, keep going." If they haven't written anything and are silent, pivot or offer help: 'Let me know if you need a hint.'
 
 OUTPUT FORMAT:
 Always return a JSON object:
@@ -131,7 +132,10 @@ ${resume}
 CONVERSATION HISTORY:
 ${historyText}
 
-Determine the current phase, process the candidate's last response, and generate Jordan's next response:`;
+CURRENT LIVE DOCS CODE:
+${currentCode || '(No code written yet)'}
+
+Determine the current phase, process the candidate's last spoken response and live code, and generate Jordan's next response:`;
 
   try {
     const response = await client.chat.completions.create({
@@ -240,6 +244,7 @@ export async function evaluateSessionAndSave(
       seniorityLevel: 'mid', // default
       responses: formattedResponses,
       violations: violations.map(v => v.type),
+      campaignType: session.campaign?.type,
     };
 
     const report = await generateSessionReport(reportInput);
@@ -288,6 +293,82 @@ export async function evaluateSessionAndSave(
         scores: { error: true, details: err instanceof Error ? err.message : 'Unknown LLM failure' },
         summary: 'CRITICAL ERROR: AI Evaluation server failed to process the interview transcript. Please review the responses manually.',
       },
+    });
+  }
+}
+
+/**
+ * Generate a response for the Live Coding conversational flow.
+ */
+export async function generateLiveCodingResponse(
+  jd: string,
+  resume: string,
+  history: Array<{ questionText: string; answerText: string }>,
+  groqApiKey?: string,
+  currentCode: string = ''
+): Promise<string> {
+  const client = getAiClient(groqApiKey);
+  const model = getModel(groqApiKey);
+
+  const systemPrompt = `You are "Jordan", an elite, concise human technical interviewer conducting a Live Coding pair-programming session.
+
+STATE MACHINE:
+1. QUESTION_DELIVERY: ONLY when the conversation history is completely empty (first ever message). Generate a realistic coding problem tailored to the Resume and Job Description. Set "shouldPasteQuestion": true and provide the full markdown problem in "generatedProblemStatement".
+2. APPROACH_PHASE: The candidate must verbally explain their approach BEFORE coding. Evaluate their explanation. If correct, acknowledge and tell them to start coding. If wrong, give a subtle hint.
+3. CODING_PHASE: The candidate is coding. The current state of their code is provided. If they ask a question or get stuck, give a hint. Otherwise, give brief encouragement.
+4. FOLLOW_UP: If they say they are done coding, ask a quick follow-up question (e.g. about time complexity or edge cases).
+
+CRITICAL RULE: "shouldPasteQuestion" MUST be false in ALL phases except QUESTION_DELIVERY. NEVER set it to true if there is any conversation history at all.
+
+OUTPUT FORMAT (JSON Object):
+{
+  "currentPhase": "QUESTION_DELIVERY" | "APPROACH_PHASE" | "CODING_PHASE" | "FOLLOW_UP", 
+  "speechOutput": "[Your concise spoken response]",
+  "shouldPasteQuestion": false,
+  "generatedProblemStatement": null
+}
+Note: "shouldPasteQuestion" is ONLY true when currentPhase is QUESTION_DELIVERY AND history is empty.`;
+
+  const userPrompt = `
+JOB DESCRIPTION:
+${jd}
+
+CANDIDATE RESUME:
+${resume}
+
+HISTORY:
+${JSON.stringify(history)}
+
+CANDIDATE CODE STATE:
+${currentCode || '(empty)'}
+
+Generate next conversational response:`;
+
+  try {
+    const response = await client.chat.completions.create({
+      model,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 300,
+    });
+
+    let rawContent = response.choices[0]?.message?.content?.trim() || '';
+    const firstBrace = rawContent.indexOf('{');
+    const lastBrace = rawContent.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      rawContent = rawContent.substring(firstBrace, lastBrace + 1);
+    }
+    return rawContent;
+  } catch (err) {
+    logger.error({ err }, 'Failed to generate live coding response');
+    return JSON.stringify({
+      currentPhase: 'CODING_PHASE',
+      speechOutput: 'Keep going, let me know if you get stuck.',
+      shouldPasteQuestion: false
     });
   }
 }

@@ -1,5 +1,7 @@
 # Proctara — AI Interview Platform
 
+[![CI/CD Pipeline](https://github.com/divyanshii10/Proctara/actions/workflows/ci.yml/badge.svg)](https://github.com/divyanshii10/Proctara/actions/workflows/ci.yml)
+
 Proctara is a production-grade, end-to-end AI Technical Interview Platform (similar to Micro1). It allows companies to conduct automated, adaptive AI interviews for candidates. The platform handles everything from campaign creation and candidate invitations to conducting the live interview (with speech-to-text, text-to-speech, and live code editing) and generating comprehensive evaluation reports.
 
 ## 🚀 Tech Stack
@@ -188,6 +190,41 @@ npm run dev
 6. Click "Start Interview" on the dashboard.
 7. Go through the pre-interview setup wizard, allow camera and mic permissions.
 8. Start talking to the AI Interviewer! 
+
+
+## 🔄 CI/CD & Deployment
+
+### Pipeline Overview
+
+Continuous integration and container validation are automated via GitHub Actions workflows:
+
+- **`.github/workflows/ci.yml`**: Main CI pipeline triggered on pull requests and pushes to `main` and `develop`.
+  - **Code Quality**: Runs workspace linting (`npm run lint`) and TypeScript checks (`npm run typecheck`) across all workspaces via Turborepo.
+  - **Tests**: Provisions an ephemeral PostgreSQL 16 service container, applies schema migrations (`prisma migrate deploy`), and executes workspace test suites (`npm test --if-present`).
+  - **Docker Images**: Builds production multi-stage Docker images for both `proctara-api` and `proctara-web` on merges to `main`.
+- **`.github/workflows/docker-build.yml`**: Automated workflow for container build verification with Docker Buildx and GitHub Actions cache backend (`type=gha`).
+
+### Local Infrastructure with Docker Compose
+
+Database and caching services can be run locally using Docker Compose:
+
+```bash
+# Start PostgreSQL and Redis services in the background
+docker compose up -d
+
+# Inspect running services
+docker compose ps
+
+# Stop services preserving data volumes
+docker compose down
+```
+
+### Production Deployment (Render)
+
+Production deployment for the API service is configured via `render.yaml`:
+- Pushes to the `main` branch trigger automatic zero-downtime builds on Render.
+- The build command installs dependencies, generates the Prisma client, and compiles `@proctara/api` using Turborepo.
+- The production server runs `dist/server.js` with environment variables managed through the Render dashboard.
 
 ---
 
