@@ -1,31 +1,32 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies for all workspaces so packages and lockfile resolve cleanly.
 FROM base AS deps
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
-RUN npm install --frozen-lockfile 2>/dev/null || npm install
+RUN npm ci
 
-# Build
+# Build stage: compile TypeScript and generate the Prisma client.
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY . .
 RUN cd apps/api && npx prisma generate && npx tsc
 
-# Production
+# Production image: copy compiled output and runtime dependencies.
 FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 proctara
 
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/prisma ./prisma
-COPY --from=builder /app/apps/api/node_modules ./node_modules
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/package.json ./package.json
 
 USER proctara
